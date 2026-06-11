@@ -1,0 +1,295 @@
+\documentclass[11pt, letterpaper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{cite}
+\usepackage{array}
+\usepackage{tabularx}
+
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{accent}{RGB}{0, 70, 127}   % deep navy
+
+% ── Hyperref ──────────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks = true,
+  linkcolor  = accent,
+  citecolor  = accent,
+  urlcolor   = accent,
+}
+
+% ── Section formatting ────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{accent}}{\thesection.}{0.5em}{}[\titlerule]
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{accent!80!black}}{\thesubsection.}{0.5em}{}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{accent}{\textbf{HFT Order Intelligence}}}
+\fancyhead[R]{\small\textcolor{gray}{Project Proposal}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ───────────────────────────────────────────────────────────────
+\begin{center}
+  {\LARGE\bfseries\color{accent}
+    Reverse-Engineering HFT Strategy from Reported Orders:\\[4pt]
+    PnL Attribution, News-Event Reaction, and Feature Inference
+  }\\[10pt]
+  {\large Research Proposal}\\[4pt]
+  {\normalsize \today}
+\end{center}
+
+\vspace{6pt}
+\hrule height 1.2pt
+\vspace{14pt}
+
+% ── Abstract ──────────────────────────────────────────────────────────────────
+\begin{center}
+\begin{minipage}{0.92\textwidth}
+\small\itshape
+\textbf{Abstract.}
+High-frequency trading (HFT) firms are required to report a subset of their
+orders through regulatory and exchange mechanisms (FINRA OATS/CAT, 13-F filings,
+and similar sources), yet these filings represent a sparse, time-delayed, and
+often aggregated window into activity that occurs at microsecond resolution.
+This project uses that sparse signal to reconstruct, as completely as possible,
+the PnL profile of HFT-attributable orders, measure their latency response to
+macroeconomic and firm-specific news events, and infer the likely feature set
+and strategy class underpinning their trading behavior. The ultimate goal is to
+build an open analytical framework that quantifies how much information is
+recoverable about a market participant from their minimal regulatory footprint.
+\end{minipage}
+\end{center}
+
+\vspace{10pt}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Motivation and Research Questions}
+% ─────────────────────────────────────────────────────────────────────────────
+
+HFT firms collectively account for a substantial fraction of U.S. equity volume
+yet disclose only the minimum required by regulation. Each reported order is
+therefore a data point of outsized informational value: it reveals a firm's
+choice of instrument, direction, size, and timing under the specific market
+conditions that prevailed at execution. Taken together, even a handful of
+reported orders can constrain the strategy space considerably.
+
+This project is organized around three core research questions:
+
+\begin{enumerate}[label=\textbf{RQ\arabic*.}, leftmargin=2.2cm]
+  \item \textbf{PnL Attribution.}
+    Given a set of reported HFT orders and the corresponding limit-order-book
+    (LOB) and trade-tape data, what is the realized PnL of those orders at
+    various horizons (intraday mark-to-market, close-of-day, and multi-day
+    holding if applicable)?
+
+  \item \textbf{News-Event Reaction Timing.}
+    How quickly do reported HFT orders respond to identifiable news events
+    (FOMC announcements, earnings releases, macro data prints, and
+    Twitter/news-sentiment spikes)? Does the reaction-time distribution imply
+    co-location, direct feeds, or alternative data usage?
+
+  \item \textbf{Strategy and Feature Inference.}
+    Using the temporal, directional, and size patterns of reported orders, can
+    we classify the likely strategy archetype (market-making, statistical
+    arbitrage, momentum, latency arbitrage) and infer which features—spread,
+    order imbalance, mid-price momentum, volatility regime—best explain the
+    observed order placement behavior?
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Data Sources}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Reported Order Data}
+
+\begin{itemize}[noitemsep]
+  \item \textbf{CAT / OATS filings}: Consolidated Audit Trail reports providing
+    NMS order-level data attributed to member firms, accessible via academic
+    data agreements or FINRA research programs.
+  \item \textbf{13-F quarterly holdings}: For HFT-affiliated entities that cross
+    AUM thresholds, institutional holdings filings offer a coarse long-side
+    snapshot.
+  \item \textbf{Exchange proprietary feeds} (TAQ, ITCH): Used to reconstruct
+    surrounding market context and to match reported orders against the public
+    record.
+\end{itemize}
+
+\subsection{Market Microstructure Data}
+
+\begin{itemize}[noitemsep]
+  \item \textbf{LOBSTER / NASDAQ ITCH}: Full limit-order-book reconstructions
+    at message-level granularity for selected symbols and dates.
+  \item \textbf{NYSE TAQ}: Millisecond-stamped trade and quote data for broad
+    cross-sectional coverage.
+  \item \textbf{CME Globex MDP 3.0}: For futures instruments where HFT activity
+    is pronounced (ES, NQ, ZN).
+\end{itemize}
+
+\subsection{News and Macro Event Data}
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Refinitiv/LSEG NewsScope}: Timestamped news events with
+    entity-level tagging.
+  \item \textbf{FRED / BLS release calendar}: Macro data print timestamps
+    (CPI, NFP, FOMC minutes) with pre-announced release times.
+  \item \textbf{Ravenpack / Benzinga}: Alternative sentiment scores for
+    real-time news impact estimation.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Methodology}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Step 1 — Order Matching and Context Reconstruction}
+
+Each reported order $o_i = (t_i, s_i, d_i, q_i, p_i)$ (timestamp, symbol,
+direction, quantity, price) is matched against the contemporaneous LOB snapshot
+to recover:
+\begin{itemize}[noitemsep]
+  \item Best bid/ask and spread at time $t_i$
+  \item Queue depth at the reported price level
+  \item Estimated fill probability and expected slippage
+\end{itemize}
+
+For orders with no explicit fill confirmation in the public record, we use a
+probabilistic fill model calibrated on execution-quality statistics from MIDAS
+data.
+
+\subsection{Step 2 — PnL Attribution}
+
+Realized PnL for each filled order is computed at three horizons:
+
+\begin{align}
+  \text{PnL}^{(T)}_i &= d_i \cdot \bigl(m_{t_i + T} - p_i\bigr) \cdot q_i
+\end{align}
+
+where $m_{t_i + T}$ is the mid-price at horizon $T \in \{0.01\text{s},\;
+0.5\text{s},\; 1\text{s},\; \text{EOD}\}$ and $d_i \in \{+1, -1\}$ encodes
+buy/sell direction.
+
+Aggregate PnL curves are constructed and bootstrapped confidence bands are
+applied to assess statistical significance given the small reported-order sample.
+
+\subsection{Step 3 — News-Event Reaction Analysis}
+
+For each identified macro/news event $e_j$ with timestamp $\tau_j$:
+
+\begin{enumerate}[noitemsep]
+  \item Compute the set of HFT orders placed within window
+    $[\tau_j - 5\text{s},\; \tau_j + 30\text{s}]$.
+  \item Measure \textbf{reaction latency} $\Delta_j = t^*_j - \tau_j$, where
+    $t^*_j$ is the first order placed after the event.
+  \item Compare $\Delta_j$ against the distribution of all-participant first
+    responses to the same event (from TAQ).
+  \item Compute \textbf{directional accuracy}: fraction of post-event orders
+    that correctly anticipate the subsequent price move.
+\end{enumerate}
+
+We additionally examine the \textbf{pre-event positioning}: order flow imbalance
+in $[\tau_j - 60\text{s},\; \tau_j)$ attributed to the HFT entity, which may
+reveal whether the firm trades on advance signal or purely on speed.
+
+\subsection{Step 4 — Feature and Strategy Inference}
+
+We treat the ordered sequence of $N$ reported orders as observations from a
+latent decision process and attempt to infer the most likely feature set via
+three complementary approaches:
+
+\paragraph{4a. Descriptive signature analysis.}
+Compute summary statistics (order-to-trade ratio, average holding time, size
+clustering, time-of-day seasonality, spread-crossing frequency) and compare
+against known benchmarks for each strategy archetype.
+
+\paragraph{4b. Regression-based feature attribution.}
+Regress order direction $d_i$ on contemporaneous LOB features:
+\begin{align}
+  \Pr(d_i = +1) &= \sigma\!\Bigl(\beta_0 + \beta_1 \cdot \text{OIB}_{t_i}
+    + \beta_2 \cdot \text{Mom}_{t_i}^{(k)} + \beta_3 \cdot \hat{\sigma}_{t_i}
+    + \beta_4 \cdot \text{Spread}_{t_i} + \varepsilon_i\Bigr)
+\end{align}
+where OIB is the LOB order-flow imbalance, Mom$^{(k)}$ is $k$-second
+mid-price momentum, $\hat{\sigma}$ is realized volatility, and $\sigma(\cdot)$
+is the logistic function. Significant $\beta$ coefficients identify which
+microstructure features explain order direction.
+
+\paragraph{4c. Classification against strategy templates.}
+Build a labeled dataset of synthetic HFT order sequences generated from known
+strategy archetypes (market-making, momentum, stat-arb, latency arb) using
+simulation on real LOB data. Train a classifier (XGBoost or random forest)
+and apply it to the reported orders.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Expected Outputs and Deliverables}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+  \toprule
+  \textbf{Deliverable} & \textbf{Description} \\
+  \midrule
+  PnL dashboard & Interactive visualization of per-order and aggregate PnL
+    curves across horizons, with breakdown by symbol, date, and event type. \\[4pt]
+  Reaction-time report & Ranked latency table of the HFT entity vs.\ market
+    median across event categories; directional accuracy scorecard. \\[4pt]
+  Feature attribution table & Regression output with coefficient estimates and
+    significance levels for each candidate microstructure feature. \\[4pt]
+  Strategy classification memo & Model output, confidence scores, and
+    qualitative interpretation of the inferred strategy archetype. \\[4pt]
+  Open-source codebase & Python package (pandas / polars / scikit-learn)
+    covering data ingestion, LOB reconstruction, PnL engine, and
+    classification pipeline; reproducible via GitHub. \\
+  \bottomrule
+\end{tabularx}
+
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Related Work}
+% ─────────────────────────────────────────────────────────────────────────────
+
+This project builds on a body of literature in market microstructure and HFT
+analysis:
+
+\begin{itemize}[noitemsep]
+  \item Brogaard, Hendershott, \& Riordan (2014) identify HFT order flow in
+    NASDAQ data and document their superior ability to predict short-term price
+    movements.
+  \item Menkveld (2013) characterizes modern market-maker PnL decomposition
+    into spread revenue and adverse-selection loss.
+  \item Cont, Kukanov, \& Stoikov (2014) introduce the order-flow imbalance
+    measure as a leading indicator of short-horizon price moves—directly
+    applicable to our feature-attribution step.
+  \item Baron, Brogaard, Hagströmer, \& Kirilenko (2019) document the
+    heterogeneity of HFT strategies and their differential contribution to
+    price discovery vs.\ intermediation.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Reported HFT orders are a rare and underexploited data source. Even their
+sparse signal—timing, direction, size, and instrument—contains enough
+information to reconstruct meaningful PnL estimates, characterize a firm's
+responsiveness to information events, and constrain the space of plausible
+trading strategies. This project provides a rigorous, reproducible framework
+for that analysis and contributes an open-source toolkit to the market
+microstructure research community. The methods developed here are also directly
+applicable to regulatory transparency efforts and to academic work on
+information asymmetry in modern equity markets.
+
+\end{document}
