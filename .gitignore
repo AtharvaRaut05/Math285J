@@ -7,9 +7,6 @@ AAPL*/
 *.7z
 *.zip
 
-# Large output CSVs and JSONs — keep only PNGs
-output/*.csv
-output/*.json
 
 # Debug / temp logs
 *.txt

@@ -1,0 +1,100 @@
+[
+  {
+    "mpid": "WBPX",
+    "firm_name": "Unknown / Not Found in Public Records",
+    "firm_type": "Unconfirmed",
+    "hq_location": "Unknown",
+    "brief_description": "WBPX does not appear in the publicly available NASDAQ MPID master list (nasdaqtrader.com) or any indexed FINRA/SEC filing as of June 2026. No credible public source maps this four-letter code to a specific registered broker-dealer, market maker, or other FINRA member firm. It may be inactive, delisted, confidential, or a misquoted code. The only confirmed NASDAQ MPID publicly associated with Webull Financial LLC \u2014 a superficially similar name \u2014 is 'BULL' (NASDAQ Participant type). Verification via the official NASDAQ Trader MPID lookup or FINRA BrokerCheck is recommended."
+  },
+  {
+    "mpid": "MAXM",
+    "firm_name": "Maxim Group LLC",
+    "firm_type": "Full-Service Broker-Dealer / Market Maker / Investment Bank",
+    "hq_location": "New York, NY (Midtown Manhattan)",
+    "brief_description": "Maxim Group LLC is a full-service investment bank, broker-dealer, and NASDAQ-registered market maker focused on emerging growth and small-cap companies. It provides investment banking, institutional equity sales and trading, equity research, wealth management, and market-making services across more than 10,000 securities. It is a member of FINRA, MSRB, SIPC, NASDAQ, and NYSE Arca. In 2023, Freedom Holding Corp. (Nasdaq: FRHC) announced a definitive agreement to acquire Maxim Group LLC."
+  },
+  {
+    "mpid": "WCHV",
+    "firm_name": "Wells Fargo Securities, LLC",
+    "firm_type": "Institutional Broker-Dealer / Market Maker / Primary Dealer",
+    "hq_location": "Charlotte, NC (550 South Tryon Street, Suite 3200)",
+    "brief_description": "Wells Fargo Securities, LLC is the institutional broker-dealer and capital markets subsidiary of Wells Fargo & Company. The MPID 'WCHV' derives from Wachovia Securities, which Wells Fargo acquired in 2008. The firm is a FINRA and SEC-registered broker-dealer, a designated Federal Reserve Primary Dealer in U.S. government securities, a registered Futures Commission Merchant (FCM), and a member of major U.S. exchanges including NYSE, NASDAQ, and NYSE ARCA. It provides investment banking, equity and fixed-income market making, institutional sales and trading, capital markets, and advisory services."
+  },
+  {
+    "mpid": "JPMS",
+    "firm_name": "J.P. Morgan Securities LLC",
+    "firm_type": "Full-service broker-dealer, investment adviser, market maker, and ATS operator",
+    "hq_location": "New York, NY, USA",
+    "brief_description": "J.P. Morgan Securities LLC (JPMS) is the registered broker-dealer and investment advisory subsidiary of JPMorgan Chase & Co. It is a member of NYSE, FINRA, MSRB, and SIPC, and operates multiple Alternative Trading Systems (JPM-X and JPB-X). JPMS provides institutional and retail brokerage, market making, algorithmic trading, prime brokerage, underwriting, and wealth management services through J.P. Morgan Wealth Management."
+  },
+  {
+    "mpid": "UBSS",
+    "firm_name": "UBS Securities LLC",
+    "firm_type": "Broker-Dealer / Market Maker / ATS Operator",
+    "hq_location": "New York, NY, USA",
+    "brief_description": "UBS Securities LLC is the US broker-dealer subsidiary of UBS Group AG and one of NASDAQ's highest-volume liquidity providers. Operating under MPID UBSS, the firm executes institutional, retail, and corporate client orders in US equities on both an agency and principal basis, maintains market-making books across a wide range of securities, and operates the UBS ATS (an SEC-registered dark pool) for crossing non-displayed orders. Its electronic trading desk offers algorithmic trading, smart order routing (UBS SOR), and direct market access (DMA) services."
+  },
+  {
+    "mpid": "ETMM",
+    "firm_name": "G1 Execution Services, LLC",
+    "firm_type": "Registered Broker-Dealer / Market Maker",
+    "hq_location": "Chicago, IL, USA (175 W. Jackson Blvd, Suite 1700)",
+    "brief_description": "G1 Execution Services, LLC (formerly E*TRADE Capital Markets, LLC) is an SEC-registered broker-dealer and NASDAQ market maker that provides execution services in listed and OTC equity securities. It is a NASDAQ member, FINRA member, and NASDAQ BX member. The firm generally acts as a market maker in equity securities on a principal basis and is one of the larger wholesale execution and market-making operations in the US equity markets."
+  },
+  {
+    "mpid": "IMCC",
+    "firm_name": "IM Cannabis Corp.",
+    "firm_type": "Listed Equity Issuer (NASDAQ ticker symbol, NOT a broker-dealer or market maker MPID)",
+    "hq_location": "Kibbutz Glil-Yam, Israel (with operations in Germany)",
+    "brief_description": "IMCC is the NASDAQ ticker symbol for IM Cannabis Corp., an international medical cannabis company operating in Israel and Germany. It is NOT a registered FINRA/NASDAQ Market Participant Identifier (MPID) assigned to a broker-dealer, market maker, or HFT firm. No broker-dealer or market-making firm using 'IMCC' as an MPID appears in public FINRA or NASDAQ market participant records."
+  },
+  {
+    "mpid": "WBPX",
+    "firm_name": "Wedbush Securities Inc.",
+    "firm_type": "Full-Service Broker-Dealer / Clearing Firm",
+    "hq_location": "Los Angeles, California, USA",
+    "brief_description": "Wedbush Securities Inc. is a privately held, full-service broker-dealer and FINRA/NASDAQ member founded in 1955. The firm operates across Wealth Management, Investment Banking & Capital Markets, and Clearing & Execution divisions. WBPX is one of its NASDAQ MPIDs, confirmed via a 2019 NASDAQ disciplinary action document. Wedbush holds memberships on all major U.S. exchanges including NYSE, NASDAQ, NYSE Arca, and BATS, and offers prime brokerage, market-making, and institutional execution services."
+  },
+  {
+    "mpid": "MAXM",
+    "firm_name": "Maxim Group LLC",
+    "firm_type": "Full-Service Broker-Dealer / Market Maker",
+    "hq_location": "New York, NY (300 Park Ave, 16th Floor)",
+    "brief_description": "Maxim Group LLC is a FINRA/SEC-registered full-service investment bank, broker-dealer, and NASDAQ market maker (MPID: MAXM) founded in 2002. The firm acts as a market maker in over 10,000 securities and provides investment banking, institutional equity sales & trading, equity research, wealth management, and capital markets services focused primarily on small-cap and emerging-growth companies."
+  },
+  {
+    "mpid": "WCHV",
+    "firm_name": "Wells Fargo Securities, LLC",
+    "firm_type": "Full-Service Broker-Dealer / Investment Bank / Primary Dealer",
+    "hq_location": "Charlotte, North Carolina, USA",
+    "brief_description": "Wells Fargo Securities, LLC is the institutional broker-dealer and investment banking arm of Wells Fargo & Company, founded in 2009 following the acquisition of Wachovia Securities. It is registered with the SEC and FINRA, designated as a Federal Reserve Primary Dealer in U.S. government securities, and operates across sales & trading, market-making, equity and fixed income underwriting, M&A advisory, prime brokerage, loan syndication, and risk management. The MPID 'WCHV' is derived from the legacy 'WaCHoVia' branding."
+  },
+  {
+    "mpid": "JPMS",
+    "firm_name": "J.P. Morgan Securities LLC",
+    "firm_type": "Registered Broker-Dealer, Investment Adviser, Market Maker, and ATS Operator",
+    "hq_location": "New York, NY, USA",
+    "brief_description": "J.P. Morgan Securities LLC (JPMS) is the full-service broker-dealer and investment adviser subsidiary of JPMorgan Chase & Co. It is a FINRA, MSRB, and SIPC member that operates as a registered market maker and block positioner in equity securities on NASDAQ, runs proprietary dark pools/ATS platforms (JPM-X and JPB-X) for non-displayed order crossing, and provides institutional and retail brokerage, wealth management, and capital markets services."
+  },
+  {
+    "mpid": "UBSS",
+    "firm_name": "UBS Securities, LLC",
+    "firm_type": "Broker-Dealer / Market Maker",
+    "hq_location": "New York, NY, USA",
+    "brief_description": "UBS Securities, LLC is the U.S. broker-dealer subsidiary of UBS Group AG. Operating under the NASDAQ MPID 'UBSS', it is one of the largest liquidity providers on NASDAQ, acting as a market maker across a broad range of NMS-listed equities. The firm handles institutional and retail order flow, operates an ATS (dark pool), runs algorithmic trading platforms, and provides retail market-making services. It is a registered FINRA member and SEC-regulated broker-dealer."
+  },
+  {
+    "mpid": "ETMM",
+    "firm_name": "G1 Execution Services, LLC",
+    "firm_type": "Registered Broker-Dealer / Retail Market Maker",
+    "hq_location": "Chicago, IL (440 S. LaSalle St., Suite 3030)",
+    "brief_description": "G1 Execution Services, LLC (formerly E*TRADE Capital Markets, LLC) is a FINRA-registered broker-dealer and wholesale retail market maker in listed and OTC equity securities. Originally E*TRADE Financial's Chicago-based market-making arm, it was sold in February 2014 and is now 100% owned by G1X Holdings, LLC. The firm internalizes and fills retail order flow on behalf of broker-dealers, competing with other wholesale market makers for payment-for-order-flow arrangements."
+  },
+  {
+    "mpid": "IMCC",
+    "firm_name": "IM Cannabis Corp. (IMC)",
+    "firm_type": "Listed Issuer / Publicly Traded Company (NOT a broker-dealer or market maker MPID)",
+    "hq_location": "Toronto, Canada and Glil Yam, Israel",
+    "brief_description": "IMCC is the NASDAQ Capital Market ticker symbol for IM Cannabis Corp., an international medical cannabis company with operations in Israel and Germany. It does NOT correspond to a broker-dealer, market maker, HFT firm, or trading-desk MPID. The code appears in NASDAQ market data as a listed equity security (type 'Q'), not as a registered market participant identifier assigned to a trading firm."
+  }
+]

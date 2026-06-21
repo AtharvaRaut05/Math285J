@@ -1,0 +1,2 @@
+firm,n_fills,T+0.1s (100ms after fill)_total,T+0.1s (100ms after fill)_mean,T+0.1s (100ms after fill)_n,T+1s (1 second after fill)_total,T+1s (1 second after fill)_mean,T+1s (1 second after fill)_n,T+30s (30 seconds after fill)_total,T+30s (30 seconds after fill)_mean,T+30s (30 seconds after fill)_n,T=EOD (end-of-day mark-to-market)_total,T=EOD (end-of-day mark-to-market)_mean,T=EOD (end-of-day mark-to-market)_n
+UBSS,153,7581.42,49.5517,153,7916.62,51.7426,153,7566.17,49.4521,153,-5570.94,-36.4113,153

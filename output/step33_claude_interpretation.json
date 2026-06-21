@@ -1,0 +1,52 @@
+{
+  "events": [
+    {
+      "event": "NFP Sep-2025",
+      "date": "2025-10-03",
+      "tau_sec": 30600,
+      "pre_ofi": -25,
+      "pre_net": "bearish",
+      "pre_bid_sub": 5,
+      "pre_ask_sub": 30,
+      "post_n_execs": 0,
+      "post_latency_ms": null,
+      "post_dominant": null,
+      "post_correct_direction": null,
+      "post_price_move_bps": null
+    },
+    {
+      "event": "CPI Sep-2025",
+      "date": "2025-10-10",
+      "tau_sec": 30600,
+      "pre_ofi": 0,
+      "pre_net": "neutral",
+      "pre_bid_sub": 0,
+      "pre_ask_sub": 0,
+      "post_n_execs": 0,
+      "post_latency_ms": null,
+      "post_dominant": null,
+      "post_correct_direction": null,
+      "post_price_move_bps": null
+    },
+    {
+      "event": "Retail Sales Sep-2025",
+      "date": "2025-10-14",
+      "tau_sec": 30600,
+      "pre_ofi": -1,
+      "pre_net": "bearish",
+      "pre_bid_sub": 0,
+      "pre_ask_sub": 0,
+      "post_n_execs": 0,
+      "post_latency_ms": null,
+      "post_dominant": null,
+      "post_correct_direction": null,
+      "post_price_move_bps": null
+    }
+  ],
+  "claude": "```json\n[\n  {\n    \"event\": \"NFP Sep-2025\",\n    \"archetype\": \"INFORMED\",\n    \"latency_class\": \"direct-feed/1-10ms\",\n    \"pre_positioning\": \"yes\",\n    \"interpretation\": \"Strong bearish pre-positioning (-25 OFI, 6:1 ask/bid submission ratio) suggests informed traders anticipated weaker employment data. Absence of post-event execution data prevents directional confirmation, but the asymmetric order placement indicates deliberate directional conviction rather than market-making.\"\n  },\n  {\n    \"event\": \"CPI Sep-2025\",\n    \"archetype\": \"MARKET MAKE\",\n    \"latency_class\": \"slow/>100ms\",\n    \"pre_positioning\": \"no\",\n    \"interpretation\": \"Perfectly neutral pre-event profile (zero OFI, balanced order flow, no net positioning) indicates COST HFT activity was purely liquidity-provision during this macro event. No special information advantage detected in order placement.\"\n  },\n  {\n    \"event\": \"Retail Sales Sep-2025\",\n    \"archetype\": \"MOMENTUM\",\n    \"latency_class\": \"slow/>100ms\",\n    \"pre_positioning\": \"ambiguous\",\n    \"interpretation\": \"Minimal pre-positioning (-1 OFI) with balanced submissions and zero post-event executions suggests delayed reaction or absence of directional HFT activity. The trivial OFI could reflect reactive order cancellation rather than informed positioning, consistent with passive momentum-following behavior.\"\n  }\n]\n```\n\n**Key Observations:**\n- **NFP** shows the clearest informed positioning with aggressive ask-side loading (30 vs 5 bids)\n- **CPI** exhibits pure market-making indifference, typical for consensually expected data\n- **Retail Sales** lacks engagement entirely, suggesting low volatility expectation or post-event coordination gaps\n- All three events show **zero post-event executions**, limiting latency precision estimates to pre-event order placement patterns",
+  "model": "claude-haiku-4-5-20251001",
+  "usage": {
+    "input": 682,
+    "output": 473
+  }
+}

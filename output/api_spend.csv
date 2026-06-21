@@ -1,0 +1,15 @@
+firm,step,input_tok,output_tok,cost_usd
+WBPX,research,57190,1783,0.1983
+WBPX,annotation,647,1200,0.00532
+MAXM,research,59340,1840,0.2056
+MAXM,annotation,637,1168,0.00518
+WCHV,research,133140,2091,0.4308
+WCHV,annotation,640,943,0.00428
+JPMS,research,92788,1996,0.3083
+JPMS,annotation,641,1135,0.00505
+UBSS,research,105510,1947,0.3457
+UBSS,annotation,1464,1200,0.00597
+ETMM,research,111293,1918,0.3626
+ETMM,annotation,1160,1200,0.00573
+IMCC,research,57463,1830,0.1998
+IMCC,annotation,643,1200,0.00531

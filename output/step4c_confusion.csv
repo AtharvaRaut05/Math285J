@@ -1,0 +1,5 @@
+,pred_market_maker,pred_momentum,pred_stat_arb,pred_latency_arb
+true_market_maker,11107,11666,10360,11293
+true_momentum,10945,11823,10325,11334
+true_stat_arb,11058,11781,10436,11152
+true_latency_arb,11015,11729,10429,11254

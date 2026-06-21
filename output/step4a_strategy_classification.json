@@ -1,0 +1,208 @@
+{
+  "aggregate": {
+    "order_to_trade_ratio": {
+      "mean": 8.0964,
+      "std": 1.3537,
+      "min": 6.33,
+      "max": 11.47
+    },
+    "avg_holding_s": {
+      "mean": 2294.8889,
+      "std": 1292.1137,
+      "min": 97.2753,
+      "max": 3695.1757
+    },
+    "med_holding_s": {
+      "mean": 5.1189,
+      "std": 3.3042,
+      "min": 1.0063,
+      "max": 10.6963
+    },
+    "frac_round_lots": {
+      "mean": 0.3993,
+      "std": 0.0409,
+      "min": 0.3136,
+      "max": 0.49
+    },
+    "cancel_rate": {
+      "mean": 0.8766,
+      "std": 0.126,
+      "min": 0.6001,
+      "max": 0.9547
+    },
+    "frac_hidden_exec": {
+      "mean": 0.4838,
+      "std": 0.0369,
+      "min": 0.4034,
+      "max": 0.5307
+    },
+    "sub_imbalance": {
+      "mean": 0.0338,
+      "std": 0.0987,
+      "min": -0.1094,
+      "max": 0.1922
+    }
+  },
+  "per_day": [
+    {
+      "date": "2025-10-01",
+      "n_submits": 169620,
+      "n_execs": 22707,
+      "order_to_trade_ratio": 7.47,
+      "avg_holding_s": 529.0342,
+      "med_holding_s": 1.222,
+      "frac_round_lots": 0.4,
+      "cancel_rate": 0.7375,
+      "frac_hidden_exec": 0.4481,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": -0.1094,
+      "top_sizes": "{np.int64(0): 75273, np.int64(100): 67290, np.int64(10): 13170, np.int64(20): 4577, np.int64(50): 2538}"
+    },
+    {
+      "date": "2025-10-02",
+      "n_submits": 161531,
+      "n_execs": 19694,
+      "order_to_trade_ratio": 8.2,
+      "avg_holding_s": 3129.1578,
+      "med_holding_s": 7.3424,
+      "frac_round_lots": 0.3896,
+      "cancel_rate": 0.9512,
+      "frac_hidden_exec": 0.485,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": 0.1888,
+      "top_sizes": "{np.int64(0): 73741, np.int64(100): 62111, np.int64(10): 13069, np.int64(20): 4603, np.int64(50): 2448}"
+    },
+    {
+      "date": "2025-10-02",
+      "n_submits": 157824,
+      "n_execs": 19209,
+      "order_to_trade_ratio": 8.22,
+      "avg_holding_s": 555.6223,
+      "med_holding_s": 1.0063,
+      "frac_round_lots": 0.3972,
+      "cancel_rate": 0.7265,
+      "frac_hidden_exec": 0.4855,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": 0.1922,
+      "top_sizes": "{np.int64(0): 71046, np.int64(100): 61883, np.int64(10): 12673, np.int64(20): 4431, np.int64(50): 2384}"
+    },
+    {
+      "date": "2025-10-03",
+      "n_submits": 150731,
+      "n_execs": 18770,
+      "order_to_trade_ratio": 8.03,
+      "avg_holding_s": 3695.1757,
+      "med_holding_s": 10.6963,
+      "frac_round_lots": 0.4056,
+      "cancel_rate": 0.9486,
+      "frac_hidden_exec": 0.4676,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": -0.0426,
+      "top_sizes": "{np.int64(0): 67304, np.int64(100): 60357, np.int64(10): 10971, np.int64(20): 4307, np.int64(50): 2503}"
+    },
+    {
+      "date": "2025-10-06",
+      "n_submits": 178122,
+      "n_execs": 25594,
+      "order_to_trade_ratio": 6.96,
+      "avg_holding_s": 3135.7635,
+      "med_holding_s": 8.1634,
+      "frac_round_lots": 0.3818,
+      "cancel_rate": 0.9319,
+      "frac_hidden_exec": 0.4034,
+      "peak_half_hour_ET": "09:30",
+      "sub_imbalance": -0.0984,
+      "top_sizes": "{np.int64(0): 82658, np.int64(100): 67017, np.int64(10): 14621, np.int64(20): 5207, np.int64(50): 2715}"
+    },
+    {
+      "date": "2025-10-07",
+      "n_submits": 164175,
+      "n_execs": 20466,
+      "order_to_trade_ratio": 8.02,
+      "avg_holding_s": 3006.3208,
+      "med_holding_s": 8.0303,
+      "frac_round_lots": 0.3826,
+      "cancel_rate": 0.9473,
+      "frac_hidden_exec": 0.4753,
+      "peak_half_hour_ET": "09:30",
+      "sub_imbalance": 0.0176,
+      "top_sizes": "{np.int64(0): 76831, np.int64(100): 61985, np.int64(10): 12482, np.int64(20): 4635, np.int64(50): 2242}"
+    },
+    {
+      "date": "2025-10-08",
+      "n_submits": 60272,
+      "n_execs": 5257,
+      "order_to_trade_ratio": 11.47,
+      "avg_holding_s": 97.2753,
+      "med_holding_s": 2.6245,
+      "frac_round_lots": 0.3136,
+      "cancel_rate": 0.6001,
+      "frac_hidden_exec": 0.5077,
+      "peak_half_hour_ET": "09:30",
+      "sub_imbalance": 0.0495,
+      "top_sizes": "{np.int64(0): 30598, np.int64(100): 18677, np.int64(10): 5623, np.int64(20): 2080, np.int64(50): 1110}"
+    },
+    {
+      "date": "2025-10-09",
+      "n_submits": 236086,
+      "n_execs": 33523,
+      "order_to_trade_ratio": 7.04,
+      "avg_holding_s": 2091.7531,
+      "med_holding_s": 1.5933,
+      "frac_round_lots": 0.49,
+      "cancel_rate": 0.9486,
+      "frac_hidden_exec": 0.5247,
+      "peak_half_hour_ET": "09:30",
+      "sub_imbalance": 0.0297,
+      "top_sizes": "{np.int64(100): 114647, np.int64(0): 86492, np.int64(10): 17322, np.int64(20): 6069, np.int64(50): 3429}"
+    },
+    {
+      "date": "2025-10-10",
+      "n_submits": 189069,
+      "n_execs": 29859,
+      "order_to_trade_ratio": 6.33,
+      "avg_holding_s": 2544.4222,
+      "med_holding_s": 3.5228,
+      "frac_round_lots": 0.4139,
+      "cancel_rate": 0.9428,
+      "frac_hidden_exec": 0.5307,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": 0.0539,
+      "top_sizes": "{np.int64(0): 80134, np.int64(100): 77479, np.int64(10): 14761, np.int64(20): 6022, np.int64(50): 3789}"
+    },
+    {
+      "date": "2025-10-13",
+      "n_submits": 155667,
+      "n_execs": 18900,
+      "order_to_trade_ratio": 8.24,
+      "avg_holding_s": 3259.3631,
+      "med_holding_s": 6.4635,
+      "frac_round_lots": 0.4073,
+      "cancel_rate": 0.9547,
+      "frac_hidden_exec": 0.5163,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": 0.0853,
+      "top_sizes": "{np.int64(0): 68642, np.int64(100): 62774, np.int64(10): 12542, np.int64(20): 4733, np.int64(50): 2295}"
+    },
+    {
+      "date": "2025-10-14",
+      "n_submits": 159314,
+      "n_execs": 17544,
+      "order_to_trade_ratio": 9.08,
+      "avg_holding_s": 3199.8901,
+      "med_holding_s": 5.6429,
+      "frac_round_lots": 0.4107,
+      "cancel_rate": 0.9538,
+      "frac_hidden_exec": 0.4773,
+      "peak_half_hour_ET": "15:30",
+      "sub_imbalance": 0.0052,
+      "top_sizes": "{np.int64(0): 68233, np.int64(100): 64847, np.int64(10): 12946, np.int64(20): 4893, np.int64(50): 2916}"
+    }
+  ],
+  "claude": "```json\n{\n  \"primary_archetype\": \"STATISTICAL ARBITRAGE / MOMENTUM\",\n  \"secondary_archetype\": \"DIRECTIONAL / INFORMED HFT\",\n  \"confidence\": \"medium\",\n  \"key_indicators\": [\n    \"order-to-trade ratio 8.1 (within 3\u20138 range, upper bound)\",\n    \"cancel rate 87.7% (60\u201380% benchmark exceeded)\",\n    \"median holding 5.1s (consistent with stat arb), mean holding 2295s (directional signal)\",\n    \"hidden fraction 48.4% (well above 35% directional threshold)\",\n    \"round-lot fraction 40% (below stat arb 50\u201370%, suggests size discretion)\",\n    \"sub imbalance near zero on average (0.034, inconsistent with directional conviction)\",\n    \"bimodal holding distribution: median 5s vs mean 2295s suggests mixed strategy\"\n  ],\n  \"interpretation\": \"COST exhibits a hybrid profile blending statistical arbitrage and directional positioning. The high cancel rate (87.7%), elevated hidden execution (48.4%), and order-to-trade ratio of 8.1 align with stat-arb signature, but the exceptionally long mean holding time (38+ minutes) and bimodal per-day holding patterns (ranging 97s to 3695s) suggest occasional directional conviction trades layered atop higher-frequency tactical activity. The near-zero mean sub-imbalance weakens the directional classification, indicating the strategy does not persistently skew directional; instead, it likely deploys discretionary directional positions opportunistically within a predominantly stat-arb framework.\"\n}\n```",
+  "model": "claude-haiku-4-5-20251001",
+  "usage": {
+    "input": 1302,
+    "output": 390
+  }
+}

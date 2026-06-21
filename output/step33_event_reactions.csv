@@ -1,0 +1,4 @@
+event,date,tau_sec,pre_ofi,pre_net,pre_bid_sub,pre_ask_sub,post_n_execs,post_latency_ms,post_dominant,post_correct_direction,post_price_move_bps
+NFP Sep-2025,2025-10-03,30600,-25,bearish,5,30,0,,,,
+CPI Sep-2025,2025-10-10,30600,0,neutral,0,0,0,,,,
+Retail Sales Sep-2025,2025-10-14,30600,-1,bearish,0,0,0,,,,
