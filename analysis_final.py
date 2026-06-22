@@ -63,8 +63,10 @@ for f in deleted:
     f.unlink()
 print(f"Deleted {len(deleted)} HTML files")
 
-# ── 2. Load all labeled orders for each ticker ─────────────────────────────────
-print("Loading labeled orders...")
+# ── 2. Load MPID-labeled orders for each ticker (firm attribution only) ────────
+# These are used for firm-level analysis (submissions, lifecycles, portfolio).
+# Do NOT use ticker_data for LOB reference prices — see Step 3.
+print("Loading MPID-labeled orders...")
 
 ticker_data = {}   # ticker -> DataFrame of all labeled orders (all files)
 for ticker in TICKERS:
@@ -89,19 +91,36 @@ for ticker in TICKERS:
     print(f"  {ticker}: {len(full):,} labeled rows | {subs:,} submits | {fills:,} fills")
 
 # ── 3. Build execution price series per ticker per day (for same-side PnL) ────
-print("\nBuilding same-side execution price series...")
+# IMPORTANT: must use the FULL message file (all type-4/5 rows), not the
+# labeled-only subset in ticker_data.  In AVAV 2026-02-23, for example, there
+# are 6,444 executions in the full file but only 2 carry an MPID label.
+# Using labeled-only would leave the mid-price series nearly empty and make
+# every price-to-mid and PnL calculation wrong.
+print("\nBuilding execution price series from FULL message files...")
 
 exec_series = {}  # (ticker, date, 'bid'|'ask') -> (times_arr, prices_arr)
 
-for ticker, df in ticker_data.items():
-    execs = df[df.type_n.isin([4, 5])].copy()
-    execs["dir_str"] = execs["dir_n"].map({1: "bid", -1: "ask"})
-    for (date_str, side), grp in execs.groupby(["date","dir_str"]):
-        grp_s = grp.sort_values("time")
-        exec_series[(ticker, date_str, side)] = (
-            grp_s["time"].values.astype(np.float64),
-            grp_s["price_usd"].values.astype(np.float64)
-        )
+for ticker in TICKERS:
+    for fpath in sorted((DATA_BASE / ticker).glob(f"{ticker}_*_message_0.csv")):
+        date_str = fpath.name.split("_")[1]
+        full = pd.read_csv(str(fpath), header=None,
+                           names=["time","type","oid","size","price","dir","firm"],
+                           low_memory=False)
+        full["type_n"]    = pd.to_numeric(full["type"],  errors="coerce")
+        full["dir_n"]     = pd.to_numeric(full["dir"],   errors="coerce")
+        full["price_usd"] = pd.to_numeric(full["price"], errors="coerce") * PRICE_SCALE
+        full["time"]      = pd.to_numeric(full["time"],  errors="coerce")
+
+        execs = full[full["type_n"].isin([4, 5])].copy()
+        for side_n, side_str in [(1, "bid"), (-1, "ask")]:
+            side_ex = execs[execs["dir_n"] == side_n].sort_values("time")
+            if not side_ex.empty:
+                exec_series[(ticker, date_str, side_str)] = (
+                    side_ex["time"].values.astype(np.float64),
+                    side_ex["price_usd"].values.astype(np.float64)
+                )
+        n_exec = len(execs)
+        print(f"  {ticker} {date_str}: {n_exec:,} executions in full file")
 
 def best_same_side_price(ticker: str, date: str, t: float, side: str) -> float:
     """Return the nearest same-side execution price at or after time t."""

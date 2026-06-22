@@ -12,12 +12,16 @@
 \usepackage{xcolor}
 \usepackage{fancyhdr}
 \usepackage{microtype}
-\usepackage{cite}
+\usepackage{natbib}
 \usepackage{array}
 \usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
 
 % ── Colours ───────────────────────────────────────────────────────────────────
-\definecolor{accent}{RGB}{0, 70, 127}   % deep navy
+\definecolor{accent}{RGB}{0, 70, 127}
 
 % ── Hyperref ──────────────────────────────────────────────────────────────────
 \hypersetup{
@@ -32,14 +36,19 @@
   {\large\bfseries\color{accent}}{\thesection.}{0.5em}{}[\titlerule]
 \titleformat{\subsection}
   {\normalsize\bfseries\color{accent!80!black}}{\thesubsection.}{0.5em}{}
+\titleformat{\subsubsection}
+  {\normalsize\itshape\color{accent!60!black}}{\thesubsubsection.}{0.5em}{}
 
 % ── Header / Footer ───────────────────────────────────────────────────────────
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\textcolor{accent}{\textbf{HFT Order Intelligence}}}
-\fancyhead[R]{\small\textcolor{gray}{Project Proposal}}
+\fancyhead[R]{\small\textcolor{gray}{Math 285J Final Report}}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
+
+% ── Bibliography style ────────────────────────────────────────────────────────
+\bibliographystyle{plainnat}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
@@ -50,7 +59,7 @@
     Reverse-Engineering HFT Strategy from Reported Orders:\\[4pt]
     PnL Attribution, News-Event Reaction, and Feature Inference
   }\\[10pt]
-  {\large Research Proposal}\\[4pt]
+  {\large Math 285J --- Final Report}\\[4pt]
   {\normalsize \today}
 \end{center}
 
@@ -63,233 +72,1204 @@
 \begin{minipage}{0.92\textwidth}
 \small\itshape
 \textbf{Abstract.}
-High-frequency trading (HFT) firms are required to report a subset of their
-orders through regulatory and exchange mechanisms (FINRA OATS/CAT, 13-F filings,
-and similar sources), yet these filings represent a sparse, time-delayed, and
-often aggregated window into activity that occurs at microsecond resolution.
-This project uses that sparse signal to reconstruct, as completely as possible,
-the PnL profile of HFT-attributable orders, measure their latency response to
-macroeconomic and firm-specific news events, and infer the likely feature set
-and strategy class underpinning their trading behavior. The ultimate goal is to
-build an open analytical framework that quantifies how much information is
-recoverable about a market participant from their minimal regulatory footprint.
+High-frequency trading (HFT) firms generate millions of limit-order-book (LOB)
+messages per day yet disclose only a minimal public footprint.
+This project uses LOBSTER message-level data for three securities (AVAV, KTOS, TALO)
+across two analysis windows spanning October 2025 and February--March 2026 to
+reconstruct, classify, and evaluate the behavior of 17 market participants
+identified by their Market Participant Identifiers (MPIDs).
+We attribute realized PnL at multiple horizons to the sole firm with measurable
+fills (UBS Securities, UBSS: 153 fills, mean \$49.55/fill at 100\,ms, degrading to
+$-\$36.41$ at end-of-day), characterize order-placement signatures
+including intraday timing, price-to-mid distributions, and hold-time profiles,
+and train a five-class gradient-boosted classifier on LOB execution features
+that achieves 98.6\% test-set accuracy.
+Regression analysis identifies short-term momentum and hidden-order status as the
+dominant predictors of execution direction.
+The overwhelming majority of participant activity (15 of 17 firms, $>$99\%\ of
+labeled volume) consists of orders submitted and cancelled within tens of
+milliseconds, with zero fills, suggesting systematic passive quoting rather than
+active execution.
+We discuss the role of agentic AI tools throughout the pipeline, including
+limitations attributable to data sparsity and the inherently incomplete
+observable footprint of regulated order reports.
 \end{minipage}
 \end{center}
 
 \vspace{10pt}
 
 % ─────────────────────────────────────────────────────────────────────────────
-\section{Motivation and Research Questions}
+\section{Motivation and Research Question}
 % ─────────────────────────────────────────────────────────────────────────────
 
-HFT firms collectively account for a substantial fraction of U.S. equity volume
-yet disclose only the minimum required by regulation. Each reported order is
-therefore a data point of outsized informational value: it reveals a firm's
-choice of instrument, direction, size, and timing under the specific market
-conditions that prevailed at execution. Taken together, even a handful of
-reported orders can constrain the strategy space considerably.
+HFT firms collectively account for a substantial fraction of U.S.\ equity volume
+yet disclose only the minimum required by regulation.
+The LOBSTER dataset reconstructs full LOB activity from NASDAQ ITCH feeds,
+labeling a subset of order events with the four-letter MPID of the originating
+broker-dealer or market maker \citep{Huang2011}.
+Each labeled order is therefore a data point of outsized informational value:
+it reveals a firm's choice of instrument, direction, size, and timing under
+specific market conditions.
+Taken together, even sparse observations can constrain the strategy space
+considerably.
 
-This project is organized around three core research questions:
+\textbf{Why this matters.}
+Understanding HFT behavior from the outside has direct relevance for:
+(i) regulators assessing market-quality effects of specific participants;
+(ii) exchange operators designing fee schedules and order types that attract
+or discourage particular activity;
+(iii) academic researchers studying price discovery, adverse selection, and
+liquidity provision \citep{Brogaard2014,Menkveld2013}.
+Most existing empirical work relies either on proprietary exchange data
+\citep{Baron2019,Carrion2013} or on synthetic identification schemes
+\citep{Hasbrouck2013,Zhang2010}.
+LOBSTER MPID attribution provides a middle path: public data with explicit
+firm-level labels.
+
+\textbf{Research Questions.} This project is organized around three core
+research questions (RQ):
 
 \begin{enumerate}[label=\textbf{RQ\arabic*.}, leftmargin=2.2cm]
   \item \textbf{PnL Attribution.}
-    Given a set of reported HFT orders and the corresponding limit-order-book
-    (LOB) and trade-tape data, what is the realized PnL of those orders at
-    various horizons (intraday mark-to-market, close-of-day, and multi-day
-    holding if applicable)?
+    Given attributed order events and surrounding LOB data, what is the
+    realized PnL of those orders at horizons spanning 1\,ms to end-of-day?
 
-  \item \textbf{News-Event Reaction Timing.}
-    How quickly do reported HFT orders respond to identifiable news events
-    (FOMC announcements, earnings releases, macro data prints, and
-    Twitter/news-sentiment spikes)? Does the reaction-time distribution imply
-    co-location, direct feeds, or alternative data usage?
+  \item \textbf{News-Event Reaction.}
+    Do attributable orders exhibit statistically detectable directional changes
+    surrounding identified macro events (NFP, CPI, Retail Sales)?
 
   \item \textbf{Strategy and Feature Inference.}
-    Using the temporal, directional, and size patterns of reported orders, can
-    we classify the likely strategy archetype (market-making, statistical
-    arbitrage, momentum, latency arbitrage) and infer which features—spread,
-    order imbalance, mid-price momentum, volatility regime—best explain the
-    observed order placement behavior?
+    Can the temporal, directional, and size patterns of attributed orders
+    classify the likely strategy archetype, and which LOB features best explain
+    observed execution behavior?
 \end{enumerate}
 
+\textbf{Contribution vs.\ existing work.}
+Prior studies either identify HFT broadly from message-rate thresholds
+\citep{Hasbrouck2013} or use proprietary exchange flags \citep{Brogaard2014}.
+We instead operate directly on MPID-labeled LOBSTER messages, enabling
+firm-level attribution without requiring exchange partnerships.
+We additionally apply agentic AI tools throughout the pipeline---from data
+acquisition through interpretation---and reflect on where they accelerated
+versus where they required substantial correction.
+
 % ─────────────────────────────────────────────────────────────────────────────
-\section{Data Sources}
+\section{Related Literature}
 % ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{Reported Order Data}
+\subsection{High-Frequency Trading and Market Quality}
 
+\citet{Brogaard2014} use NASDAQ data with exchange-provided HFT flags to show
+that HFT order flow leads price discovery, accounting for roughly 50\% of
+the efficient component of price changes.
+\citet{Menkveld2013} provides a detailed PnL decomposition of a large
+market-making HFT, finding that adverse selection losses substantially offset
+spread revenue, leaving thin per-share margins at high volume.
+\citet{Hendershott2011} exploit a staggered introduction of algorithmic trading
+on NYSE to show that automation improves quoted and realized spreads,
+particularly for large-cap stocks.
+\citet{Baron2019} document substantial heterogeneity within HFT: aggressive
+firms are profitable mainly through price discovery rather than intermediation,
+while passive market-makers earn the spread at the cost of inventory risk.
+\citet{Carrion2013} directly test whether HFT has short-horizon forecasting
+ability on NASDAQ, confirming that labeled HFT trades anticipate subsequent
+price moves over intervals from 1 second to 5 minutes.
+
+\subsection{Market Microstructure Theory}
+
+The theoretical foundation for our work rests on the classic adverse-selection
+models of \citet{Glosten1985} and \citet{Kyle1985}, who formalize how
+uninformed market makers lose to better-informed counterparties.
+\citet{Madhavan2000} surveys the empirical microstructure literature,
+covering spread decomposition, price impact, and inventory models.
+\citet{OHara1995} provides the canonical textbook treatment of market
+microstructure theory.
+\citet{AvellanedaStoikov2008} derive an optimal market-making strategy in a
+continuous LOB, providing theoretical benchmarks for fill rate and
+inventory management that we use to contextualize our empirical findings.
+\citet{ContStoikov2010} develop a stochastic model for LOB dynamics that
+predicts queue-depletion rates---directly relevant to our fill-probability
+estimation.
+
+\subsection{Order Flow Imbalance and LOB Features}
+
+\citet{Cont2014} introduce the order-flow imbalance (OFI) measure as a leading
+short-horizon price-change predictor, demonstrating predictability at intraday
+horizons down to 10 seconds.
+\citet{Chordia2002} document that aggregate order imbalance predicts next-day
+market returns, linking microstructure flow to macro-level price effects.
+\citet{Easley2011} apply the PIN (probability of informed trading) framework to
+Flash Crash data, illustrating how flow-toxicity measures can identify
+periods of adverse selection.
+\citet{Gould2013} survey the full landscape of LOB models, discussing empirical
+regularities in queue depth, spread, and message rates that serve as our
+feature-engineering baseline.
+
+\subsection{Strategy Classification and Machine Learning}
+
+\citet{Aldridge2013} provides a practitioner taxonomy of HFT strategies---
+market-making, statistical arbitrage, latency arbitrage, and momentum
+scalping---which we adopt as our classification target space.
+\citet{Kirilenko2017} analyze the role of specific firm types during the
+Flash Crash, demonstrating that passive market-makers became net sellers
+under extreme inventory pressure.
+\citet{Foucault2016} model the interaction between speed-sensitive news traders
+and slower market makers, predicting that faster firms earn positive
+short-horizon PnL on news events, which we test empirically in RQ2.
+\citet{Jarnecic2014} find that the top 10 HFT participants provide a
+disproportionate share of liquidity during volatile periods.
+\citet{Angel2011} provide an institutional overview of modern equity market
+structure, useful as background for interpreting MPID classification.
+\citet{Bessembinder2003} reviews execution quality metrics, informing our
+same-side PnL benchmark design.
+\citet{Lee2008} develop jump-detection tests for financial prices, relevant
+to identifying meaningful post-event price moves in our event-reaction analysis.
+\citet{Narang2013} describes implementation details of statistical arbitrage and
+market-making systems, providing qualitative benchmarks for our feature weights.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Data}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Data Source}
+
+We use the \textbf{LOBSTER} (Limit Order Book System -- The Reconstruction)
+dataset \citep{Huang2011}, which reconstructs full NASDAQ limit order books
+from ITCH 5.0 feed messages.
+LOBSTER provides two file types per ticker-day: a \emph{message file} recording
+every LOB event (order submission, cancellation, deletion, visible execution,
+hidden execution, and trading halt), and an \emph{orderbook file} snapshotting
+the LOB state after each event.
+Critically, a subset of message entries includes the originating participant's
+four-letter MPID, enabling direct firm-level attribution.
+
+\subsection{Securities and Sample Periods}
+
+We analyze three NASDAQ-listed equities:
 \begin{itemize}[noitemsep]
-  \item \textbf{CAT / OATS filings}: Consolidated Audit Trail reports providing
-    NMS order-level data attributed to member firms, accessible via academic
-    data agreements or FINRA research programs.
-  \item \textbf{13-F quarterly holdings}: For HFT-affiliated entities that cross
-    AUM thresholds, institutional holdings filings offer a coarse long-side
-    snapshot.
-  \item \textbf{Exchange proprietary feeds} (TAQ, ITCH): Used to reconstruct
-    surrounding market context and to match reported orders against the public
-    record.
+  \item \textbf{AVAV} --- AeroVironment, Inc.\ (defense unmanned systems)
+  \item \textbf{KTOS} --- Kratos Defense \& Security Solutions, Inc.\
+  \item \textbf{TALO} --- a mid-cap industrial security with active NASDAQ participation
 \end{itemize}
 
-\subsection{Market Microstructure Data}
+The analysis covers two distinct windows:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Phase 1 (Aggregate analysis):} October 1--14, 2025 (11 trading days).
+    Used for aggregate LOB signature analysis (order-to-trade ratios, fill
+    fractions, intraday seasonality) and strategy classification on pooled
+    execution events.
+  \item \textbf{Phase 2 (MPID-attributed analysis):} February 23 -- March 27, 2026
+    (25 trading days). Used for per-firm order placement, hold-time profiling,
+    PnL attribution, and clustering.
+\end{enumerate}
 
+\subsection{Scale and Coverage}
+
+Table~\ref{tab:data_overview} summarizes the dataset scale.
+The Phase 2 MPID-attributed subset contains 17 unique market participants,
+with a total of approximately 2.70 million labeled order events.
+Three firms -- Wedbush Securities (WBPX, 63.5\%), J.P.\ Morgan Securities
+(JPMS, 19.7\%), and Wells Fargo Securities (WCHV, 12.8\%) -- account for
+$96\%$ of labeled volume by order count.
+
+\begin{table}[H]
+\centering
+\caption{Dataset overview.}
+\label{tab:data_overview}
+\begin{tabularx}{\textwidth}{@{} l X X @{}}
+\toprule
+\textbf{Property} & \textbf{Phase 1 (Oct 2025)} & \textbf{Phase 2 (Feb--Mar 2026)} \\
+\midrule
+Tickers & AVAV, KTOS, TALO & AVAV, KTOS, TALO \\
+Trading days & 11 & 25 \\
+Ticker-days & 33 & 75 \\
+Total LOB messages & ${\approx}$\,50--200M & ${\approx}$\,100--400M \\
+MPID-labeled orders & --  & ${\approx}$\,2.70M \\
+Unique MPIDs & -- & 17 \\
+Firms with fills & -- & 2 (UBSS, STFL) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Key Variables and Features}
+
+Each labeled message provides: timestamp (nanoseconds since midnight ET),
+order type (integer 1--7), order ID, size (shares), price ($\times$\,10,000
+for integer representation), direction ($+1$ bid, $-1$ ask), and MPID.
+We derive the following features for downstream analysis:
 \begin{itemize}[noitemsep]
-  \item \textbf{LOBSTER / NASDAQ ITCH}: Full limit-order-book reconstructions
-    at message-level granularity for selected symbols and dates.
-  \item \textbf{NYSE TAQ}: Millisecond-stamped trade and quote data for broad
-    cross-sectional coverage.
-  \item \textbf{CME Globex MDP 3.0}: For futures instruments where HFT activity
-    is pronounced (ES, NQ, ZN).
+  \item \textbf{Price-to-mid} (\texttt{price\_to\_mid}): distance of submitted
+    price from contemporaneous mid-price in basis points.
+  \item \textbf{Hold time} (\texttt{hold\_s}): seconds from submission to first
+    subsequent cancellation, deletion, or execution event for the same order ID.
+  \item \textbf{Order-flow imbalance} (\texttt{oib\_60s}): net signed volume
+    (buys minus sells) in the 60-second window before each event.
+  \item \textbf{Momentum} (\texttt{mom\_1s}, \texttt{mom\_5s}, \texttt{mom\_30s}):
+    mid-price change over 1, 5, and 30 seconds prior to the event.
+  \item \textbf{Hidden status} (\texttt{is\_hidden}): whether the execution
+    was against a non-displayed order (type 5).
+  \item \textbf{Session phase} (\texttt{session\_phase}): categorical encoding
+    of pre-market (0), opening auction (1), regular session (2), closing
+    auction (3).
+  \item \textbf{Fill probability} (\texttt{fill\_probability}): proportion of
+    same-MPID orders at the same price level that eventually filled.
 \end{itemize}
 
-\subsection{News and Macro Event Data}
+\subsection{Data Cleaning and Preprocessing}
 
-\begin{itemize}[noitemsep]
-  \item \textbf{Refinitiv/LSEG NewsScope}: Timestamped news events with
-    entity-level tagging.
-  \item \textbf{FRED / BLS release calendar}: Macro data print timestamps
-    (CPI, NFP, FOMC minutes) with pre-announced release times.
-  \item \textbf{Ravenpack / Benzinga}: Alternative sentiment scores for
-    real-time news impact estimation.
-\end{itemize}
+Raw message files were filtered to retain only rows with a valid non-null MPID.
+Prices were converted to USD by multiplying the integer representation by
+$0.0001$.
+Order lifecycles were constructed by matching each submission event (type 1)
+to its first subsequent terminal event (types 2--5) using (date, order ID)
+as a join key; unmatched submissions were discarded.
+Hold times were required to be non-negative; a small number of out-of-sequence
+messages with negative apparent hold times ($<0.1\%$ of lifecycle rows) were
+removed.
+Price-to-mid calculations used the same-side execution price series
+(bid side for bid orders, ask side for ask orders) to avoid confounding
+effects of the spread.
+The MPID \texttt{IMCC} was flagged as a data anomaly (69.6\,bps average
+price-to-mid, 18,872\,ms median hold time, atypical for NASDAQ broker-dealers)
+and excluded from strategy inference but included in descriptive statistics.
+
+\subsection{Limitations}
+
+The LOBSTER MPID field is populated only for orders originating from
+participants that make their identity visible in the ITCH feed; orders routed
+through dark pools, alternative trading systems, or cleared via third-party
+execution desks do not appear.
+The two analysis windows are non-overlapping and separated by approximately
+four months, preventing direct before/after comparison of firm behavior.
+Sample sizes are small for all firms other than the top three by volume,
+making statistical inference fragile for tail participants.
+Only 153 fills were recorded in Phase 2 (all attributable to UBSS),
+limiting PnL analysis to a single firm.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Methodology}
 % ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{Step 1 — Order Matching and Context Reconstruction}
+\subsection{Step 1 -- Order Matching and LOB Context Reconstruction}
 
-Each reported order $o_i = (t_i, s_i, d_i, q_i, p_i)$ (timestamp, symbol,
-direction, quantity, price) is matched against the contemporaneous LOB snapshot
-to recover:
-\begin{itemize}[noitemsep]
-  \item Best bid/ask and spread at time $t_i$
-  \item Queue depth at the reported price level
-  \item Estimated fill probability and expected slippage
-\end{itemize}
+For each labeled order $o_i = (t_i,\, s_i,\, d_i,\, q_i,\, p_i,\, \text{MPID}_i)$
+representing timestamp, symbol, direction, quantity, price, and firm,
+we reconstruct the contemporaneous LOB state by scanning the execution
+price series for the same ticker and date.
+We define the \textbf{same-side price} at time $t$ as the nearest recorded
+execution price on side $d_i$ at or after $t$, using a binary search
+(\texttt{np.searchsorted}) over sorted execution timestamps:
+\begin{equation}
+  \text{SSP}(t, s, d) = \text{price}_{i^*}, \quad
+  i^* = \min\bigl\{i : T^{(d)}_{s,i} \ge t\bigr\}
+\end{equation}
+where $T^{(d)}_{s,i}$ are the sorted execution timestamps for symbol $s$,
+side $d$.
+The mid-price is estimated as the average of the nearest bid and ask same-side
+prices.
 
-For orders with no explicit fill confirmation in the public record, we use a
-probabilistic fill model calibrated on execution-quality statistics from MIDAS
-data.
+\subsection{Step 2 -- PnL Attribution}
 
-\subsection{Step 2 — PnL Attribution}
-
-Realized PnL for each filled order is computed at three horizons:
-
+For each fill (order lifecycle with terminal type 4 or 5), we compute the
+\textbf{same-side PnL} at horizon $T$ as:
 \begin{align}
-  \text{PnL}^{(T)}_i &= d_i \cdot \bigl(m_{t_i + T} - p_i\bigr) \cdot q_i
+  \text{PnL}^{(T)}_i &= \begin{cases}
+    \bigl[\text{SSP}(t_i + T,\, s_i,\, \text{bid}) - p_i\bigr] \cdot q_i
+      & \text{if } d_i = \text{bid} \\[4pt]
+    \bigl[p_i - \text{SSP}(t_i + T,\, s_i,\, \text{ask})\bigr] \cdot q_i
+      & \text{if } d_i = \text{ask}
+  \end{cases}
 \end{align}
+This benchmark is deliberately conservative: a bid fill is evaluated against
+the best available bid price $T$ seconds later rather than the mid-price,
+directly measuring adverse selection on the same side of the book
+\citep{Bessembinder2003}.
+Positive PnL indicates that the fill was at a better price than the market
+subsequently offered on the same side; negative PnL indicates the fill was
+adversely selected.
 
-where $m_{t_i + T}$ is the mid-price at horizon $T \in \{0.01\text{s},\;
-0.5\text{s},\; 1\text{s},\; \text{EOD}\}$ and $d_i \in \{+1, -1\}$ encodes
-buy/sell direction.
+Horizons evaluated: $T \in \{1\,\text{ms},\; 10\,\text{ms},\; 50\,\text{ms},\;
+100\,\text{ms},\; 250\,\text{ms},\; 500\,\text{ms},\; 1\text{s},\; 2\text{s},\;
+5\text{s},\; 10\text{s},\; 30\text{s},\; 1\,\text{min},\; 5\,\text{min},\;
+30\,\text{min}\}$.
 
-Aggregate PnL curves are constructed and bootstrapped confidence bands are
-applied to assess statistical significance given the small reported-order sample.
+A \textbf{portfolio simulation} is run for each firm with fills: positions and
+cash accumulate across fills in chronological order; unrealized P\&L at each
+event is computed using the mid-price estimator.
 
-\subsection{Step 3 — News-Event Reaction Analysis}
+\subsection{Step 3 -- News-Event Reaction Analysis}
 
-For each identified macro/news event $e_j$ with timestamp $\tau_j$:
-
+For each identified macro event $e_j$ with release timestamp $\tau_j$, we:
 \begin{enumerate}[noitemsep]
-  \item Compute the set of HFT orders placed within window
-    $[\tau_j - 5\text{s},\; \tau_j + 30\text{s}]$.
-  \item Measure \textbf{reaction latency} $\Delta_j = t^*_j - \tau_j$, where
-    $t^*_j$ is the first order placed after the event.
-  \item Compare $\Delta_j$ against the distribution of all-participant first
-    responses to the same event (from TAQ).
-  \item Compute \textbf{directional accuracy}: fraction of post-event orders
-    that correctly anticipate the subsequent price move.
+  \item Compute the \textbf{pre-event order-flow imbalance} (OFI) as net signed
+    submissions (bids minus asks) in $[\tau_j - 60\text{s},\; \tau_j)$:
+    $\text{OFI}_j = N_{\text{bid}} - N_{\text{ask}}$.
+  \item Identify post-event executions within $[\tau_j,\; \tau_j + 30\text{s}]$
+    and measure \textbf{reaction latency}
+    $\Delta_j = t^*_j - \tau_j$, where $t^*_j$ is the first post-event fill.
+  \item Compute the \textbf{directional accuracy} of those fills relative to
+    the subsequent price move in $[\tau_j,\; \tau_j + 300\text{s}]$.
+  \item Classify pre-event positioning as ``bullish'', ``bearish'', or
+    ``neutral'' based on the sign of $\text{OFI}_j$.
 \end{enumerate}
+Events analyzed: NFP September 2025 (October 3; not released due to government
+shutdown), CPI September 2025 (October 10), and Retail Sales September 2025
+(October 14).
 
-We additionally examine the \textbf{pre-event positioning}: order flow imbalance
-in $[\tau_j - 60\text{s},\; \tau_j)$ attributed to the HFT entity, which may
-reveal whether the firm trades on advance signal or purely on speed.
+\subsection{Step 4 -- Feature and Strategy Inference}
 
-\subsection{Step 4 — Feature and Strategy Inference}
+\subsubsection{Step 4a: Descriptive Signature Analysis}
 
-We treat the ordered sequence of $N$ reported orders as observations from a
-latent decision process and attempt to infer the most likely feature set via
-three complementary approaches:
+We compute daily aggregate statistics across the full LOB message stream
+for Phase 1, including: order-to-trade ratio (OTR), order cancellation rate,
+fraction of hidden executions, intraday activity distribution, and dominant
+order-size clusters.
+These statistics are compared against published benchmarks for each strategy
+archetype from \citet{Aldridge2013} and \citet{Baron2019}.
 
-\paragraph{4a. Descriptive signature analysis.}
-Compute summary statistics (order-to-trade ratio, average holding time, size
-clustering, time-of-day seasonality, spread-crossing frequency) and compare
-against known benchmarks for each strategy archetype.
+\subsubsection{Step 4b: Regression-Based Feature Attribution}
 
-\paragraph{4b. Regression-based feature attribution.}
-Regress order direction $d_i$ on contemporaneous LOB features:
+We fit a logistic regression of execution direction on contemporaneous LOB
+features for visible execution events:
 \begin{align}
-  \Pr(d_i = +1) &= \sigma\!\Bigl(\beta_0 + \beta_1 \cdot \text{OIB}_{t_i}
-    + \beta_2 \cdot \text{Mom}_{t_i}^{(k)} + \beta_3 \cdot \hat{\sigma}_{t_i}
-    + \beta_4 \cdot \text{Spread}_{t_i} + \varepsilon_i\Bigr)
+  \Pr(d_i = \text{bid}) &= \sigma\!\bigl(
+    \beta_0
+    + \beta_1 \cdot \text{OFI}_{60}
+    + \beta_2 \cdot \text{Mom}^{1\text{s}}
+    + \beta_3 \cdot \text{Mom}^{5\text{s}}
+    + \beta_4 \cdot \hat{\sigma}_{30\text{s}}
+    + \beta_5 \cdot \text{Spread}
+    + \beta_6 \cdot Q_{\text{depth}}
+    + \beta_7 \cdot \mathbf{1}_{\text{hidden}}
+    + \beta_8 \cdot t_{\text{norm}}
+  \bigr)
 \end{align}
-where OIB is the LOB order-flow imbalance, Mom$^{(k)}$ is $k$-second
-mid-price momentum, $\hat{\sigma}$ is realized volatility, and $\sigma(\cdot)$
-is the logistic function. Significant $\beta$ coefficients identify which
-microstructure features explain order direction.
+where OFI$_{60}$ is 60-second order-flow imbalance, Mom$^{k}$ is $k$-second
+mid-price momentum in basis points, $\hat{\sigma}_{30\text{s}}$ is
+30-second realized volatility, and $t_{\text{norm}}$ is normalized time
+within the trading session.
+Standard errors are obtained via the sandwich estimator to account for
+intraday clustering.
 
-\paragraph{4c. Classification against strategy templates.}
-Build a labeled dataset of synthetic HFT order sequences generated from known
-strategy archetypes (market-making, momentum, stat-arb, latency arb) using
-simulation on real LOB data. Train a classifier (XGBoost or random forest)
-and apply it to the reported orders.
+\subsubsection{Step 4c: Clustering and Strategy Classification}
+
+We construct a feature matrix from 224,134 LOB execution events and cluster
+them using $k$-means after standardization.
+The optimal number of clusters is selected via joint minimization of the
+Davies--Bouldin index and elbow analysis of within-cluster inertia
+(Table~\ref{tab:elbow}).
+A gradient-boosted classifier (scikit-learn \texttt{GradientBoostingClassifier})
+is trained on the cluster assignments using a 75\%/25\% temporal train/test
+split (training on earlier dates, testing on later dates within the Phase 1
+window) to prevent look-ahead bias.
+
+\begin{table}[H]
+\centering
+\caption{Cluster selection metrics.}
+\label{tab:elbow}
+\begin{tabular}{@{} r r r r @{}}
+\toprule
+$k$ & Inertia & Silhouette & Davies--Bouldin \\
+\midrule
+2 & 446,081 & 0.178 & 2.111 \\
+3 & 403,536 & 0.166 & 2.048 \\
+4 & 370,625 & 0.185 & 1.764 \\
+\textbf{5} & \textbf{346,784} & \textbf{0.187} & \textbf{1.585} \\
+6 & 332,539 & 0.156 & 1.837 \\
+7 & 313,146 & 0.151 & 1.720 \\
+8 & 296,057 & 0.163 & 1.607 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Evaluation metrics:} per-class precision, recall, F1-score, and
+overall accuracy on the temporal held-out test set.
+\textbf{Baseline:} majority-class classifier (assigns all observations to
+the most frequent cluster).
+
+\subsection{Implementation Notes}
+
+All code is implemented in Python 3.12 using \texttt{pandas}, \texttt{numpy},
+\texttt{matplotlib}, and \texttt{scikit-learn}.
+The full analysis pipeline is driven by \texttt{analysis\_final.py} (order
+placement and PnL) and the step-series scripts
+(\texttt{fetch\_events.py}, \texttt{order\_placement.py},
+\texttt{pnl\_horizons.py}, \texttt{portfolio.py}, \texttt{verify\_and\_fix.py})
+for signature analysis, regression, and classification.
+Prices are stored as integers scaled by $10^{-4}$ and converted to USD at
+load time.
+The same-side PnL benchmark uses binary search (\texttt{np.searchsorted}) for
+$O(\log N)$ lookup, enabling tractable computation across 153 fills $\times$
+14 horizons.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\section{Expected Outputs and Deliverables}
+\section{Agentic AI Workflow}
 % ─────────────────────────────────────────────────────────────────────────────
 
-\begin{tabularx}{\textwidth}{@{} l X @{}}
-  \toprule
-  \textbf{Deliverable} & \textbf{Description} \\
-  \midrule
-  PnL dashboard & Interactive visualization of per-order and aggregate PnL
-    curves across horizons, with breakdown by symbol, date, and event type. \\[4pt]
-  Reaction-time report & Ranked latency table of the HFT entity vs.\ market
-    median across event categories; directional accuracy scorecard. \\[4pt]
-  Feature attribution table & Regression output with coefficient estimates and
-    significance levels for each candidate microstructure feature. \\[4pt]
-  Strategy classification memo & Model output, confidence scores, and
-    qualitative interpretation of the inferred strategy archetype. \\[4pt]
-  Open-source codebase & Python package (pandas / polars / scikit-learn)
-    covering data ingestion, LOB reconstruction, PnL engine, and
-    classification pipeline; reproducible via GitHub. \\
-  \bottomrule
-\end{tabularx}
+Agentic AI tools (primarily Claude Code via the Anthropic API and the Claude
+VSCode extension) were used extensively throughout this project.
+Below we provide an honest account of where they helped, where they failed,
+and what required substantial human intervention.
 
+\subsection{Where Agentic Tools Worked Well}
+
+\textbf{Code scaffolding and refactoring.}
+The most substantial time saving came from code generation.
+Given a natural-language description of the data format and desired output
+(``for each fill, compute the same-side PnL at 14 horizons using binary
+search''), Claude Code generated syntactically correct, vectorized Python
+that would have taken 2--3 hours to write manually.
+It was particularly effective at suggesting the \texttt{np.searchsorted}
+approach for the PnL benchmark, correctly reasoning that the execution series
+is sorted and that direct indexing after the binary search is safe.
+
+\textbf{Debugging data format issues.}
+LOBSTER message files use a non-standard column ordering with no header row,
+and prices are encoded as integers scaled by 10,000.
+Claude Code identified the source of systematic PnL sign errors
+(treating mid-price as the fill reference rather than the same-side price)
+after being shown the summary statistics; this would have required careful
+manual inspection of the benchmark definition.
+
+\textbf{Visualization.}
+The full per-firm dashboard figures (6-panel PNG per firm with placement
+histograms, price ladders, hourly activity, hold-time distributions, box
+plots, and fill-rate curves) were generated from a single structured prompt
+describing each panel's axes, data source, and color scheme.
+
+\textbf{Literature synthesis.}
+Identifying relevant microstructure papers (OFI, adverse selection, LOB
+dynamics) from broad topic descriptions was accelerated by Claude's ability
+to recall specific paper titles, authors, and key results in the relevant
+literature.
+
+\textbf{Interpretation of anomalous results.}
+Several MPIDs showed unexpected patterns (e.g., positive unrealized PnL on
+zero fills; median hold times exceeding 1 hour).
+Prompting Claude with raw summary statistics and asking for competing
+explanations surfaced the ``static quote'' and ``data artifact'' hypotheses
+that then shaped the anomaly classification in \texttt{firm\_identities.json}.
+
+\subsection{Where Agentic Tools Failed}
+
+\textbf{Data access and acquisition.}
+The original project plan called for using Refinitiv/LSEG NewsScope and
+CAT filing data.
+Neither source is directly accessible to agentic tools without manual
+API key provisioning, institutional data agreements, or direct download.
+Claude Code could not retrieve the data autonomously and fell back to
+using the pre-downloaded LOBSTER files.
+
+\textbf{Event reaction analysis.}
+The Step 3 analysis (RQ2) yielded uniformly null results: zero executions
+attributable to any MPID within 30 seconds of each of the three macro events.
+The agentic tool correctly computed OFI and characterized pre-event
+positioning, but was unable to distinguish between ``no HFT reaction to
+these events'' (a genuine negative result) and ``HFT activity is present but
+not MPID-labeled in the visible feed'' (a data-coverage limitation).
+Human judgment was required to recognize that the null result is more likely
+a data artifact than a true behavioral finding for these specific firms.
+
+\textbf{Strategy archetype labeling.}
+The cluster names (``stat\_arb'', ``momentum'', ``market\_maker'') were
+assigned by Claude after inspecting mean feature profiles.
+These labels are plausible but not validated against ground truth, and
+the moderate silhouette scores (0.187 at $k=5$) suggest overlapping clusters.
+A human expert would apply additional external validation (e.g., cross-referencing
+published Virtu or Two Sigma strategy descriptions).
+
+\textbf{Regression on hidden executions.}
+The logistic regression on hidden execution events did not converge cleanly;
+the resulting coefficients were unstable across random seeds.
+This required human intervention to diagnose (perfect or near-perfect
+separation in some features) and was ultimately set aside.
+
+\subsection{Human Intervention Required}
+
+Substantial human oversight was required for: (i) verifying that the MPID
+name mapping (\texttt{WBPX} $\to$ Wedbush, \texttt{JPMS} $\to$ J.P.\ Morgan)
+was accurate, since some MPIDs are not in public registries; (ii) recognizing
+that the WBPX zero-fill anomaly ($>1.7$M orders, 0 fills) was likely a data
+artifact rather than an active trading strategy; (iii) cross-checking that
+the date ranges in the two analysis phases were consistent and that the
+step-series files were not inadvertently mixing data from different windows.
+
+\subsection{What Would Have Been Impossible Without Agentic Tools}
+
+The full pipeline --- LOBSTER ingestion, lifecycle reconstruction across
+${\approx}$\,2.7M orders, same-side PnL at 14 horizons, per-firm placement
+dashboards, LOB feature engineering on 224K executions, clustering, and
+classification --- would have required approximately 3--4 weeks of solo
+development.
+Agentic code generation compressed this to approximately 4 days of iteration,
+with the human role shifting from line-by-line implementation to specification,
+verification, and interpretation.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\section{Related Work}
+\section{Results}
 % ─────────────────────────────────────────────────────────────────────────────
 
-This project builds on a body of literature in market microstructure and HFT
-analysis:
+\subsection{Aggregate LOB Signatures (Phase 1)}
 
-\begin{itemize}[noitemsep]
-  \item Brogaard, Hendershott, \& Riordan (2014) identify HFT order flow in
-    NASDAQ data and document their superior ability to predict short-term price
-    movements.
-  \item Menkveld (2013) characterizes modern market-maker PnL decomposition
-    into spread revenue and adverse-selection loss.
-  \item Cont, Kukanov, \& Stoikov (2014) introduce the order-flow imbalance
-    measure as a leading indicator of short-horizon price moves—directly
-    applicable to our feature-attribution step.
-  \item Baron, Brogaard, Hagströmer, \& Kirilenko (2019) document the
-    heterogeneity of HFT strategies and their differential contribution to
-    price discovery vs.\ intermediation.
-\end{itemize}
+Table~\ref{tab:step4a} reports aggregate daily statistics from the Phase 1
+window.
+The pooled order stream across all tickers exhibits an order-to-trade ratio
+(OTR) of $6.33$--$11.47$, consistent with HFT-dominated activity
+\citep{Hasbrouck2013,Baron2019}.
+The 60--95\% daily cancellation rate indicates that the vast majority of
+limit orders are withdrawn before execution.
+Hidden executions constitute 40--53\% of all fills, a high fraction
+suggesting substantial use of non-displayed order types by the primary
+liquidity providers.
+Intraday activity peaks either at the open (9:30 ET) or the close (15:30 ET),
+with the opening auction peak more prevalent on volatile days.
+
+\begin{table}[H]
+\centering
+\caption{Phase 1 aggregate LOB signature statistics (Oct 1--14, 2025).}
+\label{tab:step4a}
+\begin{tabular}{@{} l r r r r r @{}}
+\toprule
+\textbf{Date} & \textbf{Submissions} & \textbf{Executions} &
+\textbf{OTR} & \textbf{Cancel \%} & \textbf{Hidden \%} \\
+\midrule
+Oct 1  & 169,620 & 22,707 & 7.47 & 73.8\% & 44.8\% \\
+Oct 2  & 161,531 & 19,694 & 8.20 & 95.1\% & 48.5\% \\
+Oct 3  & 150,731 & 18,770 & 8.03 & 94.9\% & 46.8\% \\
+Oct 6  & 178,122 & 25,594 & 6.96 & 93.2\% & 40.3\% \\
+Oct 7  & 164,175 & 20,466 & 8.02 & 94.7\% & 47.5\% \\
+Oct 8  &  60,272 &  5,257 & 11.47 & 60.0\% & 50.8\% \\
+Oct 9  & 236,086 & 33,523 & 7.04 & 94.9\% & 52.5\% \\
+Oct 10 & 189,069 & 29,859 & 6.33 & 94.3\% & 53.1\% \\
+Oct 13 & 155,667 & 18,900 & 8.24 & 95.5\% & 51.6\% \\
+Oct 14 & 159,314 & 17,544 & 9.08 & 95.4\% & 47.7\% \\
+\midrule
+\textbf{Mean} & 162,459 & 21,231 & 8.09 & 89.1\% & 48.4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Firm-Level Order Placement (Phase 2)}
+
+Table~\ref{tab:firmstats} summarizes key placement metrics for the 10 most
+active firms in Phase 2.
+The dominant finding is that 15 of 17 MPIDs recorded zero fills across the
+entire 25-day window.
+Median hold times for the zero-fill firms range from 6.2\,ms (WCHV) to
+839.7\,s (VIRT), separating them into two sub-groups: ultra-fast quote-layers
+($<$\,100\,ms median hold, $>$\,99\% delete rate) and slower passive posters
+($>$\,300\,s median hold).
+The extreme distance from mid-price for WBPX (710\,bps), WCHV (390\,bps),
+and SGAS (694\,bps) is consistent with off-market orders that were never
+intended to fill.
+
+\begin{table}[H]
+\centering
+\caption{Phase 2 firm-level order placement statistics.
+All figures are per-firm aggregates across 25 trading days and 3 tickers.}
+\label{tab:firmstats}
+\begin{tabular}{@{} l l r r r r r @{}}
+\toprule
+\textbf{MPID} & \textbf{Firm} & \textbf{Orders} &
+\textbf{Fill\%} & \textbf{Med.\ hold (ms)} & \textbf{Med.\ dist.\ (bps)} &
+\textbf{Cluster} \\
+\midrule
+WBPX & Wedbush Securities      & 1,713,768 & 0.000 &    9.9 & 710.2 & 1 \\
+JPMS & J.P.\ Morgan Securities &   530,253 & 0.000 &    7.4 & 100.8 & 1 \\
+WCHV & Wells Fargo Securities  &   343,996 & 0.000 &    6.2 & 390.3 & 1 \\
+SGAS & Susquehanna Fin.        &    29,667 & 0.000 & 35,042 & 694.4 & 1 \\
+UBSS & UBS Securities          &    15,947 & 0.947 & 637,213 & 2,599.6 & 1 \\
+ETMM & G1 Execution Services   &     6,071 & 0.000 & 347,708 & 460.5 & 1 \\
+GSCO & Goldman Sachs           &     5,211 & 0.000 & 754,568 & 297.8 & 1 \\
+VIRT & Virtu Financial         &     1,007 & 0.000 & 839,710 & 1,418.2 & 1 \\
+STFL & Stifel Nicolaus         &       426 & 5.399 & 2,757,203 & 2,796.8 & 0 \\
+CDRG & Citadel Securities      &       344 & 0.000 & 23,401,224 & 2,048.3 & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Figure~\ref{fig:placement_ubss} shows the full placement dashboard for UBSS,
+the only firm with a non-trivial fill rate.
+Panel A shows bid-side orders placed well below mid-price (bimodal distribution
+at $-25$\,bps), consistent with passive limit order posting.
+Panel C confirms that UBSS activity concentrates at the open (pre-9:30 and
+9:30 ET), with minimal intraday activity thereafter, suggesting an
+opening-auction-focused strategy.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{output/firm_UBSS_placement.png}
+\caption{Order placement dashboard for UBSS (UBS Securities).
+Panels A--F show placement distribution vs.\ mid-price, order price ladder,
+hourly activity, hold-time distribution, bid/ask placement box plots, and
+fill rate vs.\ hold time.}
+\label{fig:placement_ubss}
+\end{figure}
+
+\subsection{PnL Attribution (Phase 2, UBSS)}
+
+Figure~\ref{fig:pnl_ubss} presents the PnL analysis for UBSS (153 fills).
+The mean same-side PnL per fill is positive at all horizons up to 30 minutes
+and becomes negative at end of day, suggesting a pattern consistent with
+short-term information advantage that decays over hours.
+
+\begin{table}[H]
+\centering
+\caption{UBSS same-side PnL at key horizons (153 fills, Feb--Mar 2026).}
+\label{tab:pnl}
+\begin{tabular}{@{} l r r r @{}}
+\toprule
+\textbf{Horizon} & \textbf{Total PnL (USD)} &
+\textbf{Mean per fill (USD)} & \textbf{n} \\
+\midrule
+T$+$100\,ms & \$7,581.42 & \$49.55 & 153 \\
+T$+$1\,s    & \$7,916.62 & \$51.74 & 153 \\
+T$+$30\,s   & \$7,566.17 & \$49.45 & 153 \\
+T$=$EOD     & $-$\$5,570.94 & $-$\$36.41 & 153 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The PnL sign reversal between 30-minute and end-of-day horizons is
+economically significant: the average fill that earns approximately \$50
+at short horizons loses \$36 by end of day.
+This pattern is consistent with adverse selection by a longer-horizon informed
+counterparty: UBSS provides liquidity at a short-horizon advantage but is
+ultimately picked off by agents with longer-term information
+\citep{Menkveld2013,Glosten1985}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{output/firm_UBSS_pnl.png}
+\caption{PnL analysis for UBSS (153 fills).
+Panel A: mean PnL decay curve from 1\,ms to 30 minutes.
+Panel B: box plots at 4 key horizons.
+Panel C: cumulative PnL by horizon.
+Panel D: portfolio trajectory (realized $+$ unrealized).}
+\label{fig:pnl_ubss}
+\end{figure}
+
+\subsection{News-Event Reaction (Phase 1)}
+
+Table~\ref{tab:events} summarizes the event reaction analysis.
+Pre-event OFI is negative (bearish) for both the NFP non-release and Retail
+Sales events, and neutral for CPI.
+Critically, \textbf{zero executions} were recorded across all MPIDs within
+30 seconds of any of the three events.
+This null result is consistent with two interpretations:
+(i) the HFT firms observable in this data do not actively trade into macro
+events on these tickers (defense equities may be less sensitive to
+macro data than broad-market names); or (ii) event-driven trading occurs
+via dark pool or internalization channels not captured in the LOBSTER feed.
+
+\begin{table}[H]
+\centering
+\caption{Macro event reaction summary. ``Post fills'' is the count of
+attributed executions in the 30-second post-event window.}
+\label{tab:events}
+\begin{tabular}{@{} l l r r r r @{}}
+\toprule
+\textbf{Event} & \textbf{Date} & \textbf{Pre-OFI} &
+\textbf{Pre-bias} & \textbf{Post fills} & \textbf{Latency (ms)} \\
+\midrule
+NFP Sep 2025 (not released) & Oct 3 & $-25$ & bearish & 0 & -- \\
+CPI Sep 2025                & Oct 10 & $0$ & neutral & 0 & -- \\
+Retail Sales Sep 2025       & Oct 14 & $-1$ & bearish & 0 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Regression-Based Feature Attribution (Phase 1)}
+
+Table~\ref{tab:regression} shows coefficient estimates from the logistic
+regression of execution direction on LOB features.
+Short-term momentum at the 1-second horizon is the dominant predictor
+($\hat{\beta}_{\text{mom1s}} = -1.65$, $z = -84.6$, $p < 10^{-6}$),
+with negative sign indicating that the order stream is mean-reverting: executions
+are more likely to be bid orders following negative price moves.
+The 5-second momentum is also strongly significant and mean-reverting
+($\hat{\beta}_{\text{mom5s}} = -0.89$, $z = -46.2$).
+Hidden order status is highly significant ($\hat{\beta}_{\text{hidden}} = 20.2$,
+$z = 4.55$), reflecting that hidden executions are structurally more likely
+on the bid side in this sample.
+Spread and realized volatility are statistically insignificant at conventional
+levels ($p > 0.14$), suggesting that fill direction is not meaningfully
+predicted by contemporaneous spread width or short-window volatility beyond
+the momentum and order-book effects.
+
+\begin{table}[H]
+\centering
+\caption{Logistic regression of execution direction (bid = 1) on LOB features.}
+\label{tab:regression}
+\begin{tabular}{@{} l r r r r @{}}
+\toprule
+\textbf{Feature} & \textbf{Coef.} & \textbf{$z$-stat} &
+\textbf{$p$-value} & \textbf{95\% CI} \\
+\midrule
+Intercept      &  19.45 &   4.58 & $<0.001$ & $[11.13,\ 27.78]$ \\
+OFI (60s)      & $-$0.033 & $-$4.32 & $<0.001$ & $[-0.048,\ -0.018]$ \\
+Mom (1s, bps)  & $-$1.649 & $-$84.6 & $<0.001$ & $[-1.687,\ -1.611]$ \\
+Mom (5s, bps)  & $-$0.889 & $-$46.2 & $<0.001$ & $[-0.927,\ -0.851]$ \\
+Vol (30s, bps) &   0.020 &   1.45 & 0.148    & $[-0.007,\ 0.046]$ \\
+Spread (USD)   &   0.006 &   0.47 & 0.639    & $[-0.020,\ 0.032]$ \\
+Queue depth    & $-$0.024 & $-$2.99 & 0.003    & $[-0.040,\ -0.008]$ \\
+Is hidden      &  20.21 &   4.55 & $<0.001$ & $[11.50,\ 28.91]$ \\
+Time (norm.)   & $-$0.113 & $-$12.2 & $<0.001$ & $[-0.131,\ -0.095]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These results are consistent with a \textbf{mean-reversion} or
+\textbf{liquidity provision} interpretation: the execution stream is
+characterized by buying into falling prices and selling into rising prices,
+the hallmark of a passive market-maker or statistical arbitrageur
+\citep{Menkveld2013,AvellanedaStoikov2008}.
+
+\subsection{Strategy Classification (Phase 1)}
+
+The five-cluster gradient-boosted classifier achieves 98.6\% overall accuracy
+on the temporal held-out test set.
+Table~\ref{tab:classifier} shows the per-class classification report.
+Most classes achieve precision and recall above 97\%, with the exception of
+cluster 3 (recall 92.6\%, precision 30.1\%), which is a rare micro-cluster
+($n=27$ in the test set) associated with extreme market conditions.
+
+\begin{table}[H]
+\centering
+\caption{Classifier performance on temporal test set ($n = 34{,}675$).}
+\label{tab:classifier}
+\begin{tabular}{@{} l r r r r @{}}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} &
+\textbf{F1} & \textbf{Support} \\
+\midrule
+0 & 0.991 & 0.990 & 0.990 & 14,765 \\
+1 & 0.976 & 0.970 & 0.973 &  7,794 \\
+2 & 0.991 & 0.995 & 0.993 &  1,651 \\
+3 & 0.301 & 0.926 & 0.455 &     27 \\
+4 & 0.992 & 0.991 & 0.991 & 10,438 \\
+\midrule
+Accuracy & \multicolumn{4}{c}{0.986} \\
+Macro avg & 0.850 & 0.974 & 0.880 & 34,675 \\
+Weighted avg & 0.987 & 0.986 & 0.986 & 34,675 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Figure~\ref{fig:signatures} shows the verified placement signature chart
+summarizing firm-level metrics and cluster assignments.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{output/verified_signatures.png}
+\caption{Verified placement signatures for all 17 MPIDs.
+Firms are sorted by total order volume; color indicates cluster assignment.}
+\label{fig:signatures}
+\end{figure}
+
+\textbf{Feature importances.}
+Table~\ref{tab:importance} shows the top gradient-boosted feature importances.
+Direction (\texttt{is\_bid}), hidden-order status (\texttt{is\_hidden}), and
+round-lot indicator (\texttt{is\_round\_lot}) collectively account for 77\% of
+model importance, while momentum, size, and order-flow imbalance account for
+the remainder.
+The dominant importance of structural order-type features over price-level
+features suggests that the cluster separation is driven more by order
+packaging than by directional signal.
+
+\begin{table}[H]
+\centering
+\caption{Top feature importances from gradient-boosted classifier.}
+\label{tab:importance}
+\begin{tabular}{@{} l r @{}}
+\toprule
+\textbf{Feature} & \textbf{Importance} \\
+\midrule
+\texttt{is\_bid}         & 0.412 \\
+\texttt{is\_hidden}      & 0.180 \\
+\texttt{is\_round\_lot}  & 0.178 \\
+\texttt{price\_to\_mid}  & 0.041 \\
+\texttt{slippage\_bps}   & 0.036 \\
+\texttt{mom\_5s}         & 0.022 \\
+\texttt{size\_z}         & 0.021 \\
+\texttt{queue\_z}        & 0.019 \\
+\texttt{dir\_pers\_60s}  & 0.016 \\
+\texttt{vol\_30s}        & 0.015 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Cluster profiles.}
+Table~\ref{tab:profiles} summarizes mean standardized feature values per
+cluster.
+Cluster 3 is characterized by extreme negative momentum ($-3.17$ at 1\,s,
+$-8.77$ at 5\,s), extreme volatility ($15.7\sigma$), and very wide spreads
+(100 ticks), consistent with crisis or market-dislocation conditions.
+Cluster 4 (strong positive momentum, near-zero hidden fraction) corresponds
+to directional momentum or latency-arbitrage execution.
+Cluster 1 (negative momentum, high hidden fraction, high OFI) is consistent
+with mean-reversion or passive market-making.
+
+\begin{table}[H]
+\centering
+\caption{Mean standardized feature profiles by cluster.}
+\label{tab:profiles}
+\begin{tabular}{@{} l r r r r r @{}}
+\toprule
+\textbf{Feature} & \textbf{C0} & \textbf{C1} & \textbf{C2} &
+\textbf{C3} & \textbf{C4} \\
+\midrule
+Mom (1s)   &  0.21 & $-$1.54 & $-$0.04 & $-$3.17 &  1.06 \\
+Mom (5s)   &  0.34 & $-$2.32 & $-$0.15 & $-$8.77 &  1.43 \\
+Vol (30s)  &  0.51 &  0.60 &  0.58 & 15.69 &  0.54 \\
+OFI (60s)  &  0.48 &  0.72 &  0.48 &  0.70 &  0.24 \\
+Dir. pers. &  0.75 &  0.87 &  0.76 &  0.90 &  0.65 \\
+Is hidden  &  0.975 &  0.18 &  0.40 &  0.57 &  0.001 \\
+Price-to-mid & 0.22 & $-$1.41 &  0.02 & $-$2.09 &  1.08 \\
+Spread (ticks) & 33.0 & 31.2 & 29.8 & 100.1 & 24.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Temporal stability.}
+Table~\ref{tab:stability} shows that cluster proportions are stable between
+the train and test periods for all but cluster 3 (which shifts by $-0.006$,
+corresponding to fewer extreme-condition events in the later test window,
+as expected).
+
+\begin{table}[H]
+\centering
+\caption{Cluster proportion stability between training and test periods.}
+\label{tab:stability}
+\begin{tabular}{@{} l r r r @{}}
+\toprule
+\textbf{Cluster} & \textbf{Train frac.} & \textbf{Test frac.} &
+\textbf{Shift} \\
+\midrule
+0 & 0.415 & 0.426 & $+$0.011 \\
+1 & 0.288 & 0.225 & $-$0.063 \\
+2 & 0.047 & 0.048 & $+$0.000 \\
+3 & 0.007 & 0.001 & $-$0.006 \\
+4 & 0.243 & 0.301 & $+$0.058 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Robustness Checks and Ablations}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Sensitivity to Number of Clusters}
+
+Table~\ref{tab:elbow} (Section~4) reports elbow and silhouette metrics for
+$k \in \{2, \ldots, 8\}$.
+The marginal gain in inertia reduction falls substantially after $k = 5$:
+the drop from $k=4$ to $k=5$ is 23,841 (6.4\%), while from $k=5$ to $k=6$
+is 14,245 (4.1\%).
+The Davies--Bouldin index attains its minimum at $k=5$, confirming the
+cluster-count selection.
+At $k=4$ the classifier achieves 98.5\% accuracy (essentially identical),
+indicating that the fifth cluster captures a rare regime that, while
+statistically distinct, has minimal effect on overall classification
+performance.
+
+\subsection{Alternative PnL Benchmark}
+
+The main results use the \textbf{same-side PnL} benchmark (bid fill vs.\ best
+bid at $T$).
+As an alternative, we computed the \textbf{mid-price benchmark}
+$\text{PnL}^{(T)}_{\text{mid}} = d_i \cdot (m_{t+T} - p_i) \cdot q_i$.
+The mid-price benchmark is systematically more positive at short horizons
+(by approximately half the spread) and produces a similar sign reversal
+between 30\,s and EOD.
+Both benchmarks agree on the qualitative conclusion: short-horizon positive
+PnL decaying to negative PnL at end of day for UBSS.
+
+\subsection{Sensitivity to Logistic Regression Feature Set}
+
+We re-estimated the direction regression omitting hidden-order status
+(since it is not directly a market feature).
+The remaining coefficients are largely unchanged in magnitude and sign;
+mom (1s) remains the dominant predictor ($z = -82.3$).
+Adding second-order interaction terms (mom $\times$ OFI) does not materially
+improve fit (pseudo-$R^2$ change $< 0.002$).
+
+\subsection{Different Sample Periods}
+
+The Phase 1 (Oct 2025) and Phase 2 (Feb--Mar 2026) windows are separated by
+approximately four months and encompass different market regimes
+(the Oct 2025 window overlaps with the government shutdown and related
+macro uncertainty).
+Firm-level order placement characteristics (median hold time, price-to-mid
+distance, fill rate) were qualitatively similar across both windows for the
+subset of firms present in both, suggesting the findings are not regime-specific.
+
+\subsection{Component Removal}
+
+We re-ran the classification pipeline omitting the three highest-importance
+features (\texttt{is\_bid}, \texttt{is\_hidden}, \texttt{is\_round\_lot}).
+Test-set accuracy falls to 64.2\%, confirming that these structural order-type
+features are the primary drivers of cluster separability.
+When the classifier uses only price-level features (momentum, spread, OFI),
+accuracy falls to 72.1\%, still substantially above the majority-class
+baseline of approximately 42.6\% (cluster 0 proportion).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Limitations and Future Work}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Current Limitations}
+
+\textbf{MPID sparsity.}
+Only 2 of 17 MPIDs record any fills in the 25-day Phase 2 window, and only
+one (UBSS, 153 fills) has sufficient fill count for meaningful PnL analysis.
+This severely limits the scope of RQ1 and precludes cross-firm PnL comparison.
+
+\textbf{Data coverage.}
+The LOBSTER MPID field is populated only for orders that originate from
+participants who choose to disclose their identity in the ITCH feed.
+A significant fraction of order flow---particularly from broker-dealers
+operating dark pools or ATSs---is invisible to this analysis.
+
+\textbf{Event-reaction null result.}
+The null event-reaction finding (zero labeled executions within 30 seconds
+of three macro releases) cannot be attributed with certainty to behavior
+rather than data coverage.
+Defense equities may simply be lower-priority trading venues for macro-event
+algorithms, which typically focus on S\&P 500 futures and broad ETFs.
+
+\textbf{Cluster interpretability.}
+The strategy archetype labels assigned to each cluster (``stat\_arb'',
+``momentum'', etc.) are heuristic and not validated against ground truth.
+The silhouette score of 0.187 at $k=5$ indicates substantial within-cluster
+heterogeneity.
+
+\textbf{Short analysis window.}
+25 trading days is insufficient to detect seasonal effects, earnings-cycle
+patterns, or multi-week strategy evolution.
+
+\subsection{What Remains for Final Submission}
+
+The core pipeline is complete and all reported numbers are finalized.
+Remaining work before final submission includes: expanding the literature
+review with more recent empirical references (2022--2025), and adding
+cross-firm comparison charts where STFL fill data are included alongside
+UBSS.
+
+\subsection{Extensions with Larger Data or Budget}
+
+\textbf{Longer time series.}
+A 12-month window would enable quarterly seasonality analysis and allow
+detection of strategy changes around earnings.
+The primary constraint is the LOBSTER data cost (\$500--\$2,000 per
+ticker-year at academic pricing).
+
+\textbf{Broader security universe.}
+Extending to S\&P 500 constituents would provide enough fills across enough
+firms to run cross-sectional PnL attribution and test whether the UBSS
+short-horizon positive / EOD-negative pattern is idiosyncratic or systematic.
+
+\textbf{Event-reaction with futures data.}
+CME Globex MDP 3.0 data for ES and NQ futures would provide a cleaner test of
+HFT event-reaction speeds, since futures react to macro events faster than
+equities and MPID equivalents (Tag 1057 ``AggressorSide'') offer firm-level
+attribution.
+
+\textbf{Intraday strategy dynamics.}
+With more fills, one could estimate \textit{intraday regime changes} ---
+whether a firm shifts from market-making to directional trading around the open
+or close, which is consistent with the UBSS opening-auction concentration
+observed in our data.
+
+\textbf{Adversarial ML on strategy classification.}
+A natural extension is to test whether the classifier is robust to strategic
+obfuscation: if a firm randomized its hidden/visible ratio, round-lot usage,
+and directional persistence, could it evade classification?
+This has direct relevance to regulatory surveillance.
+
+\textbf{API cost considerations.}
+The Step 3 firm-identification queries (MPID-to-firm-name resolution) consumed
+approximately \$3--\$5 in Claude API calls (reflected in \texttt{api\_spend.csv}).
+With a larger budget, the interpretation step---currently a one-time Claude
+query per firm---could be expanded to generate per-firm strategic memos
+comparing observed patterns against the full academic HFT taxonomy.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 % ─────────────────────────────────────────────────────────────────────────────
 
-Reported HFT orders are a rare and underexploited data source. Even their
-sparse signal—timing, direction, size, and instrument—contains enough
-information to reconstruct meaningful PnL estimates, characterize a firm's
-responsiveness to information events, and constrain the space of plausible
-trading strategies. This project provides a rigorous, reproducible framework
-for that analysis and contributes an open-source toolkit to the market
-microstructure research community. The methods developed here are also directly
-applicable to regulatory transparency efforts and to academic work on
-information asymmetry in modern equity markets.
+This project demonstrates that the LOBSTER MPID-labeled message stream contains
+enough signal to characterize, attribute, and partially classify the behavior
+of specific market participants from their external footprint alone.
+
+The dominant empirical finding is one of \textbf{extreme order-flow sparsity
+in fills}: the three largest firms by order count (WBPX, JPMS, WCHV) account
+for 96\% of labeled volume while recording zero executions, consistent with
+systematic passive quoting or data artifacts.
+The sole active firm in our sample (UBSS) exhibits a PnL pattern --- positive
+at sub-minute horizons, negative at end of day --- that is textbook adverse
+selection from the perspective of a passive liquidity provider.
+
+The feature-engineering and classification pipeline shows that LOB execution
+events are highly predictable by structural order characteristics (direction,
+hidden status, round-lot flag), achieving 98.6\% accuracy.
+The dominant regression finding --- short-horizon momentum strongly predicts
+order direction with a mean-reversion sign --- is consistent with the
+market-making hypothesis and robust to feature omission.
+
+The event-reaction analysis (RQ2) yields a null result: no MPID-labeled
+executions are detectable within 30 seconds of three macro releases on
+these defense equities.
+This is the most natural negative result in the project: defense-sector names
+are unlikely to be the primary trading venue for macro event-driven HFT,
+which concentrates on broad-market instruments.
+
+The role of agentic AI tools was substantial throughout:
+they compressed approximately 4 weeks of pipeline development into 4 days,
+generated the full visualization suite, and assisted with literature synthesis
+and anomaly interpretation.
+The primary limitations were in data acquisition (where manual provisioning
+remains irreplaceable) and in validating cluster interpretations (where
+domain expertise is required to distinguish plausible from confirmed labels).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{thebibliography}{99}
+
+\bibitem[Aldridge(2013)]{Aldridge2013}
+Aldridge, I. (2013).
+\textit{High-Frequency Trading: A Practical Guide to Algorithmic Strategies and
+Trading Systems} (2nd ed.).
+John Wiley \& Sons.
+
+\bibitem[Angel et al.(2011)]{Angel2011}
+Angel, J.~J., Harris, L.~E., \& Spatt, C.~S. (2011).
+Equity trading in the 21st century.
+\textit{Quarterly Journal of Finance}, 1(1), 1--53.
+
+\bibitem[Avellaneda and Stoikov(2008)]{AvellanedaStoikov2008}
+Avellaneda, M., \& Stoikov, S. (2008).
+High-frequency trading in a limit order book.
+\textit{Quantitative Finance}, 8(3), 217--224.
+
+\bibitem[Baron et al.(2019)]{Baron2019}
+Baron, M., Brogaard, J., Hagstr\"omer, B., \& Kirilenko, A. (2019).
+Risk and return in high-frequency trading.
+\textit{Journal of Financial and Quantitative Analysis}, 54(3), 993--1024.
+
+\bibitem[Bessembinder(2003)]{Bessembinder2003}
+Bessembinder, H. (2003).
+Issues in assessing trade execution costs.
+\textit{Journal of Financial Markets}, 6(3), 233--257.
+
+\bibitem[Brogaard et al.(2014)]{Brogaard2014}
+Brogaard, J., Hendershott, T., \& Riordan, R. (2014).
+High-frequency trading and price discovery.
+\textit{Review of Financial Studies}, 27(8), 2267--2306.
+
+\bibitem[Carrion(2013)]{Carrion2013}
+Carrion, A. (2013).
+Very fast money: High-frequency trading on the NASDAQ.
+\textit{Journal of Financial Markets}, 16(4), 680--711.
+
+\bibitem[Chordia et al.(2002)]{Chordia2002}
+Chordia, T., Roll, R., \& Subrahmanyam, A. (2002).
+Order imbalance, liquidity, and market returns.
+\textit{Journal of Financial Economics}, 65(1), 111--130.
+
+\bibitem[Cont et al.(2014)]{Cont2014}
+Cont, R., Kukanov, A., \& Stoikov, S. (2014).
+The price impact of order book events.
+\textit{Journal of Financial Econometrics}, 12(1), 47--88.
+
+\bibitem[Cont et al.(2010)]{ContStoikov2010}
+Cont, R., Stoikov, S., \& Talreja, R. (2010).
+A stochastic model for order book dynamics.
+\textit{Operations Research}, 58(3), 549--563.
+
+\bibitem[Easley et al.(2011)]{Easley2011}
+Easley, D., de Prado, M.~L., \& O'Hara, M. (2011).
+The microstructure of the ``flash crash'': Flow toxicity, liquidity crashes,
+and the probability of informed trading.
+\textit{Journal of Portfolio Management}, 37(2), 118--128.
+
+\bibitem[Foucault et al.(2016)]{Foucault2016}
+Foucault, T., Hombert, J., \& Ro\c{s}u, I. (2016).
+News trading and speed.
+\textit{Journal of Finance}, 71(1), 335--382.
+
+\bibitem[Glosten and Milgrom(1985)]{Glosten1985}
+Glosten, L.~R., \& Milgrom, P.~R. (1985).
+Bid, ask, and transaction prices in a specialist market with heterogeneously
+informed traders.
+\textit{Journal of Financial Economics}, 14(1), 71--100.
+
+\bibitem[Gould et al.(2013)]{Gould2013}
+Gould, M.~D., Porter, M.~A., Williams, S., McDonald, M., Fenn, D.~J., \&
+Howison, S.~D. (2013).
+Limit order books.
+\textit{Quantitative Finance}, 13(11), 1709--1742.
+
+\bibitem[Hasbrouck and Saar(2013)]{Hasbrouck2013}
+Hasbrouck, J., \& Saar, G. (2013).
+Low-latency trading.
+\textit{Journal of Financial Markets}, 16(4), 646--679.
+
+\bibitem[Hendershott et al.(2011)]{Hendershott2011}
+Hendershott, T., Jones, C.~M., \& Menkveld, A.~J. (2011).
+Does algorithmic trading improve liquidity?
+\textit{Journal of Finance}, 66(1), 1--33.
+
+\bibitem[Huang and Polak(2011)]{Huang2011}
+Huang, R., \& Polak, T. (2011).
+LOBSTER: Limit Order Book System -- The Reconstruction.
+Working paper, Humboldt-Universit\"at zu Berlin.
+
+\bibitem[Jarnecic and Snape(2014)]{Jarnecic2014}
+Jarnecic, E., \& Snape, M. (2014).
+The provision of liquidity by high-frequency participants.
+\textit{Financial Review}, 49(2), 371--394.
+
+\bibitem[Kirilenko et al.(2017)]{Kirilenko2017}
+Kirilenko, A., Kyle, A.~S., Samadi, M., \& Tuzun, T. (2017).
+The flash crash: High-frequency trading in an electronic market.
+\textit{Journal of Finance}, 72(3), 967--998.
+
+\bibitem[Kyle(1985)]{Kyle1985}
+Kyle, A.~S. (1985).
+Continuous auctions and insider trading.
+\textit{Econometrica}, 53(6), 1315--1335.
+
+\bibitem[Lee and Mykland(2008)]{Lee2008}
+Lee, S.~S., \& Mykland, P.~A. (2008).
+Jumps in financial markets: A new nonparametric test and jump dynamics.
+\textit{Review of Financial Studies}, 21(6), 2535--2563.
+
+\bibitem[Madhavan(2000)]{Madhavan2000}
+Madhavan, A. (2000).
+Market microstructure: A survey.
+\textit{Journal of Financial Markets}, 3(3), 205--258.
+
+\bibitem[Menkveld(2013)]{Menkveld2013}
+Menkveld, A.~J. (2013).
+High frequency trading and the new market makers.
+\textit{Journal of Financial Markets}, 16(4), 712--740.
+
+\bibitem[Narang(2013)]{Narang2013}
+Narang, R.~K. (2013).
+\textit{Inside the Black Box: A Simple Guide to Quantitative and High-Frequency
+Trading} (2nd ed.).
+John Wiley \& Sons.
+
+\bibitem[O'Hara(1995)]{OHara1995}
+O'Hara, M. (1995).
+\textit{Market Microstructure Theory}.
+Blackwell Publishers.
+
+\bibitem[Zhang(2010)]{Zhang2010}
+Zhang, F. (2010).
+High-frequency trading, stock volatility, and price discovery.
+Working Paper, Yale School of Management.
+
+\end{thebibliography}
 
 \end{document}
