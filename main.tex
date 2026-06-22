@@ -402,9 +402,21 @@ Horizons evaluated: $T \in \{1\,\text{ms},\; 10\,\text{ms},\; 50\,\text{ms},\;
 5\text{s},\; 10\text{s},\; 30\text{s},\; 1\,\text{min},\; 5\,\text{min},\;
 30\,\text{min}\}$.
 
-A \textbf{portfolio simulation} is run for each firm with fills: positions and
-cash accumulate across fills in chronological order; unrealized P\&L at each
-event is computed using the mid-price estimator.
+A \textbf{portfolio simulation} is run for each firm with fills.
+Positions and cash accumulate across fills in chronological order; short
+selling is permitted so that ask fills execute regardless of current
+inventory (position can go negative).
+The volume-weighted average cost (VWAC) is tracked separately for long
+extensions (buys when $\text{pos} \ge 0$) and short extensions (sells when
+$\text{pos} \le 0$).
+Unrealized P\&L at each event is:
+\[
+  \text{Unrealized} = \text{pos} \times \bigl(m_t - \overline{p}\bigr)
+\]
+where $m_t$ is the mid-price at time $t$ and $\overline{p}$ is the VWAC.
+This is correct for both long positions ($\text{pos}>0$, gains when $m_t$
+rises) and short positions ($\text{pos}<0$, gains when $m_t$ falls).
+Total P\&L $=$ realized cash flow $+$ unrealized.
 
 \subsection{Step 3 -- News-Event Reaction Analysis}
 
@@ -492,10 +504,9 @@ $k$ & Silhouette \\
 All code is implemented in Python 3.12 using \texttt{pandas}, \texttt{numpy},
 \texttt{matplotlib}, and \texttt{scikit-learn}.
 The full analysis pipeline is driven by \texttt{analysis\_final.py} (order
-placement and PnL) and the step-series scripts
-(\texttt{fetch\_events.py}, \texttt{order\_placement.py},
-\texttt{pnl\_horizons.py}, \texttt{portfolio.py}, \texttt{verify\_and\_fix.py})
-for signature analysis, regression, and classification.
+placement, lifecycle matching, same-side PnL, portfolio simulation, and
+per-firm charts) and \texttt{verify\_and\_fix.py} (lifecycle correction,
+placement signatures, and firm-level clustering).
 Prices are stored as integers scaled by $10^{-4}$ and converted to USD at
 load time.
 The same-side PnL benchmark uses binary search (\texttt{np.searchsorted}) for
@@ -769,11 +780,13 @@ passive limit-order posting that is marginally adversely selected.
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{output/firm_UBSS_pnl.png}
-\caption{PnL analysis for UBSS (153 fills).
-Panel A: mean PnL decay curve from 1\,ms to 30 minutes.
-Panel B: box plots at 4 key horizons.
-Panel C: cumulative PnL by horizon.
-Panel D: portfolio trajectory (realized $+$ unrealized).}
+\caption{PnL analysis for UBSS (151 fills across AVAV and KTOS).
+Panel A: mean same-side PnL decay curve from 1\,ms to 30 minutes.
+Panel B: per-fill PnL box plots at 4 key horizons.
+Panel C: cumulative same-side PnL by horizon.
+Panel D: portfolio simulation trajectory --- realized cash flow plus
+unrealized mark-to-market gain/loss, with short selling permitted and
+position marked at \texttt{pos}~$\times$~(\texttt{mid}~$-$~\texttt{avg\_cost}).}
 \label{fig:pnl_ubss}
 \end{figure}
 

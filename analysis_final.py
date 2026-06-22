@@ -264,6 +264,19 @@ for firm in fills_df["firm"].unique() if len(fills_df) else []:
     if port:
         portfolio_by_firm[firm] = port
 
+# Save portfolio simulation results to CSV
+port_rows = []
+for firm, tickers_dict in portfolio_by_firm.items():
+    for ticker, df_p in tickers_dict.items():
+        df_p = df_p.copy()
+        df_p["firm"]   = firm
+        df_p["ticker"] = ticker
+        port_rows.append(df_p)
+if port_rows:
+    pd.concat(port_rows, ignore_index=True).to_csv(
+        OUTPUT_DIR / "portfolio_trades.csv", index=False)
+    print(f"Saved portfolio_trades.csv")
+
 # ── 7. Create PNG charts per firm ─────────────────────────────────────────────
 print("\nGenerating per-firm PNG charts...")
 
