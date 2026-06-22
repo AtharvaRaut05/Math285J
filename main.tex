@@ -79,9 +79,9 @@ across two analysis windows spanning October 2025 and February--March 2026 to
 reconstruct, classify, and evaluate the behavior of 17 market participants
 identified by their Market Participant Identifiers (MPIDs).
 We attribute realized same-side PnL at multiple horizons to two firms with confirmed
-fills: UBS Securities (UBSS, 151 fills across AVAV and KTOS, mean \$27.64/fill at 100\,ms,
-positive and recovering to \$49.05/fill at 30 minutes) and Stifel Nicolaus (STFL, 23 fills
-in TALO, mean $-\$1.16$/fill at 100\,ms).
+fills: UBS Securities (UBSS, 151 fills across AVAV and KTOS, mean \$25.47/fill at 100\,ms,
+with a U-shaped profile recovering to \$48.50/fill at 30 minutes) and Stifel Nicolaus
+(STFL, 23 fills in TALO, mean $-\$0.90$/fill at 100\,ms).
 We characterize order-placement signatures including intraday timing, price-to-mid
 distributions, and hold-time profiles across all 17 MPIDs, and cluster them into
 three distinct behavioral regimes ($k=3$, silhouette $= 0.50$).
@@ -327,9 +327,14 @@ is applied; this is critical because in this LOBSTER build only $\sim$0.06\%
 of execution rows carry an MPID label.
 Order lifecycles are then constructed per day by: (i) extracting
 MPID-labeled type-1 (submission) rows as the set of attributed orders;
-(ii) extracting all type-2/3/4/5 (terminal) rows from the full file,
-regardless of whether they carry an MPID; and (iii) joining on order ID
-to find each submission's first terminal event.
+(ii) extracting all type-2/3/4/5 (terminal) rows from the full file
+(including their executed \texttt{size}), regardless of whether they carry
+an MPID; and (iii) joining on order ID to find each submission's first
+terminal event.
+The terminal \texttt{size} is used as the executed volume in all PnL and
+portfolio calculations, replacing the submission size which reflects the
+original order quantity and can be far larger than the actual fill
+(e.g., a 5,000-share passive order that receives a 100-share partial fill).
 In this LOBSTER build, type-3 delete rows also carry the originating MPID,
 so the join succeeds for virtually all attributed orders.
 Hold times are required to be non-negative; a small fraction of
@@ -754,22 +759,22 @@ Positive = fill was at a better price than the same side offered $T$ later.}
 \label{tab:pnl}
 \begin{tabular}{@{} l r r r r r r r r @{}}
 \toprule
- & \multicolumn{8}{c}{\textbf{Mean PnL per fill (USD) at horizon $T$}} \\
+ & \multicolumn{8}{c}{\textbf{Mean same-side PnL per fill (USD) at horizon $T$}} \\
 \cmidrule{2-9}
 \textbf{Firm} &
 1\,ms & 10\,ms & 100\,ms & 1\,s & 10\,s & 30\,s & 1\,min & 30\,min \\
 \midrule
 UBSS ($n=151$) &
-29.35 & 29.40 & 27.64 & 23.86 & 17.37 & 16.80 & 19.36 & 49.05 \\
+25.42 & 25.46 & 25.47 & 23.69 & 16.98 & 13.84 & 14.15 & 48.50 \\
 STFL ($n=23$) &
-$-$0.59 & $-$1.16 & $-$1.16 & $-$1.16 & $-$0.99 & $-$2.22 & $-$5.09 & $-$4.46 \\
+$-$0.48 & $-$0.90 & $-$0.90 & $-$0.90 & $-$0.73 & $-$1.81 & $-$4.68 & $-$4.58 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 UBSS's PnL pattern is notable: the mean per-fill PnL \emph{declines} from
-100\,ms to 30\,s (from \$27.64 to \$16.80) but then \emph{recovers} strongly
-to \$49.05 at 30 minutes.
+100\,ms to 30\,s (from \$25.47 to \$13.84) but then \emph{recovers} strongly
+to \$48.50 at 30 minutes.
 This U-shaped profile is inconsistent with pure adverse selection (where PnL
 would monotonically decay) and more consistent with a directional position that
 experiences short-term mean-reversion noise before ultimately being confirmed by

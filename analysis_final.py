@@ -120,10 +120,12 @@ for ticker in TICKERS:
         subs["dir_str"] = subs["dir_n"].map({1:"bid",-1:"ask"})
 
         # Terminal events from FULL file — MPID is absent on cancels/deletes/fills
+        # Include "size" so fills use actual executed volume, not the original
+        # limit order size (which may be far larger for partial fills).
         terms = (full[full["type_n"].isin([2, 3, 4, 5])]
-                 [["oid","time","type_n","price_usd"]]
+                 [["oid","time","type_n","price_usd","size"]]
                  .rename(columns={"time":"t_term","type_n":"term_type",
-                                  "price_usd":"term_price"})
+                                  "price_usd":"term_price","size":"term_size"})
                  .sort_values("t_term")
                  .drop_duplicates(subset=["oid"], keep="first"))
 
@@ -185,7 +187,7 @@ for rec in fills_df.itertuples(index=False):
     t    = rec.t_sub
     p    = rec.sub_price
     side = rec.dir_str
-    size = rec.sub_size
+    size = rec.term_size   # actual executed volume, not original order size
     d    = rec.date
     tk   = rec.ticker
     d_i  = 1 if side == "bid" else -1
@@ -236,7 +238,7 @@ for firm in fills_df["firm"].unique() if len(fills_df) else []:
         pos, cash = 0, 0.0
         events = []
         for r in grp.itertuples(index=False):
-            sz  = int(r.sub_size)
+            sz  = int(r.term_size)  # actual executed volume, not original order size
             p   = float(r.sub_price)
             t   = float(r.t_sub)
             mid = mid_at(r.ticker, r.date, t)
