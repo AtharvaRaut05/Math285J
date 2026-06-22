@@ -361,13 +361,13 @@ plt.rcParams.update({
 
 TYPE_COLORS = {"principal":"#4CE896","agency_broker":"#E8834C","anomaly":"#888888"}
 
-fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+fig, axes = plt.subplots(2, 2, figsize=(14, 11))
 fig.patch.set_facecolor("#1a1a2e")
 fig.suptitle(
     "Quantified MPID-Attributed Order Placement Signatures\n"
-    "AVAV, KTOS, TALO -- Feb 23 - Mar 27, 2026 -- Corrected Lifecycle Matching\n"
-    "Green = principal trading firms | Orange = agency broker-dealers",
-    fontsize=10, color="white"
+    "AVAV, KTOS, TALO   |   Feb 23 – Mar 27, 2026   |   Corrected Lifecycle Matching\n"
+    "Green = principal trading firms   |   Orange = agency broker-dealers",
+    fontsize=10, color="white", y=0.98,
 )
 
 plot_df = sig_df[sig_df.member_type != "anomaly"].dropna(subset=["med_dist_mid_bps","med_hold_ms"])
@@ -442,7 +442,7 @@ handles = [Patch(color=TYPE_COLORS["principal"], label="Principal trading firm")
 ax.legend(handles=handles, fontsize=7, loc="upper right")
 ax.grid(True, alpha=0.3)
 
-plt.tight_layout(pad=2.0)
+plt.tight_layout(rect=[0, 0, 1, 0.91])
 out = OUTPUT_DIR / "verified_signatures.png"
 fig.savefig(str(out), dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
 plt.close(fig)

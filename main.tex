@@ -43,7 +43,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\textcolor{accent}{\textbf{HFT Order Intelligence}}}
-\fancyhead[R]{\small\textcolor{gray}{Math 285J Final Report}}
+\fancyhead[R]{\small\textcolor{gray}{Atharva Raut --- Math 285J}}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -59,8 +59,8 @@
     Reverse-Engineering HFT Strategy from Reported Orders:\\[4pt]
     PnL Attribution, News-Event Reaction, and Feature Inference
   }\\[10pt]
-  {\large Math 285J --- Final Report}\\[4pt]
-  {\normalsize \today}
+  {\large Atharva Raut}\\[4pt]
+  {\normalsize Math 285J --- Final Report \quad|\quad \today}
 \end{center}
 
 \vspace{6pt}
@@ -78,21 +78,22 @@ This project uses LOBSTER message-level data for three securities (AVAV, KTOS, T
 across two analysis windows spanning October 2025 and February--March 2026 to
 reconstruct, classify, and evaluate the behavior of 17 market participants
 identified by their Market Participant Identifiers (MPIDs).
-We attribute realized PnL at multiple horizons to the sole firm with measurable
-fills (UBS Securities, UBSS: 153 fills, mean \$49.55/fill at 100\,ms, degrading to
-$-\$36.41$ at end-of-day), characterize order-placement signatures
-including intraday timing, price-to-mid distributions, and hold-time profiles,
-and train a five-class gradient-boosted classifier on LOB execution features
-that achieves 98.6\% test-set accuracy.
-Regression analysis identifies short-term momentum and hidden-order status as the
-dominant predictors of execution direction.
+We attribute realized same-side PnL at multiple horizons to two firms with confirmed
+fills: UBS Securities (UBSS, 151 fills across AVAV and KTOS, mean \$27.64/fill at 100\,ms,
+positive and recovering to \$49.05/fill at 30 minutes) and Stifel Nicolaus (STFL, 23 fills
+in TALO, mean $-\$1.16$/fill at 100\,ms).
+We characterize order-placement signatures including intraday timing, price-to-mid
+distributions, and hold-time profiles across all 17 MPIDs, and cluster them into
+three distinct behavioral regimes ($k=3$, silhouette $= 0.50$).
+Regression analysis on LOB execution features identifies short-term momentum and
+hidden-order status as the dominant predictors of execution direction.
 The overwhelming majority of participant activity (15 of 17 firms, $>$99\%\ of
 labeled volume) consists of orders submitted and cancelled within tens of
 milliseconds, with zero fills, suggesting systematic passive quoting rather than
 active execution.
 We discuss the role of agentic AI tools throughout the pipeline, including
-limitations attributable to data sparsity and the inherently incomplete
-observable footprint of regulated order reports.
+a critical mid-price bug (execution series built from labeled-only messages, capturing
+$<0.1\%$ of actual trades) that was discovered and corrected prior to final analysis.
 \end{minipage}
 \end{center}
 
@@ -286,7 +287,7 @@ Ticker-days & 33 & 75 \\
 Total LOB messages & ${\approx}$\,50--200M & ${\approx}$\,100--400M \\
 MPID-labeled orders & --  & ${\approx}$\,2.70M \\
 Unique MPIDs & -- & 17 \\
-Firms with fills & -- & 2 (UBSS, STFL) \\
+Firms with fills & -- & 2 (UBSS: 151, STFL: 23) \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -465,19 +466,17 @@ window) to prevent look-ahead bias.
 
 \begin{table}[H]
 \centering
-\caption{Cluster selection metrics.}
+\caption{Firm-level cluster selection metrics (placement-signature features,
+16 firms after excluding the IMCC anomaly).}
 \label{tab:elbow}
-\begin{tabular}{@{} r r r r @{}}
+\begin{tabular}{@{} r r @{}}
 \toprule
-$k$ & Inertia & Silhouette & Davies--Bouldin \\
+$k$ & Silhouette \\
 \midrule
-2 & 446,081 & 0.178 & 2.111 \\
-3 & 403,536 & 0.166 & 2.048 \\
-4 & 370,625 & 0.185 & 1.764 \\
-\textbf{5} & \textbf{346,784} & \textbf{0.187} & \textbf{1.585} \\
-6 & 332,539 & 0.156 & 1.837 \\
-7 & 313,146 & 0.151 & 1.720 \\
-8 & 296,057 & 0.163 & 1.607 \\
+2 & 0.344 \\
+\textbf{3} & \textbf{0.501} \\
+4 & 0.423 \\
+5 & 0.471 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -586,13 +585,19 @@ separation in some features) and was ultimately set aside.
 
 \subsection{Human Intervention Required}
 
-Substantial human oversight was required for: (i) verifying that the MPID
-name mapping (\texttt{WBPX} $\to$ Wedbush, \texttt{JPMS} $\to$ J.P.\ Morgan)
-was accurate, since some MPIDs are not in public registries; (ii) recognizing
-that the WBPX zero-fill anomaly ($>1.7$M orders, 0 fills) was likely a data
-artifact rather than an active trading strategy; (iii) cross-checking that
-the date ranges in the two analysis phases were consistent and that the
-step-series files were not inadvertently mixing data from different windows.
+Substantial human oversight was required for:
+(i) identifying a critical mid-price bug --- the execution price series used for
+all PnL and placement-distance calculations was built from MPID-labeled rows only,
+which captured at most 2 of 6,444 daily executions per ticker-day; the
+agentic tool generated this code without flagging the filter, and the error
+was identified by inspecting the unexpectedly sparse exec\_series output;
+(ii) verifying MPID name mappings (\texttt{WBPX} $\to$ Wedbush, etc.), since
+several MPIDs do not appear in public registries and the agentic tool's
+identifications required manual cross-checking;
+(iii) recognizing that the WBPX zero-fill anomaly ($>1.7$M orders, 0 fills)
+was a genuine behavioral signature rather than a pipeline bug;
+(iv) cross-checking that the two analysis windows (Oct 2025 and Feb--Mar 2026)
+were not inadvertently mixed in intermediate output files.
 
 \subsection{What Would Have Been Impossible Without Agentic Tools}
 
@@ -656,12 +661,17 @@ active firms in Phase 2.
 The dominant finding is that 15 of 17 MPIDs recorded zero fills across the
 entire 25-day window.
 Median hold times for the zero-fill firms range from 6.2\,ms (WCHV) to
-839.7\,s (VIRT), separating them into two sub-groups: ultra-fast quote-layers
+839.7\,s (Virtu, VIRT), separating them into two sub-groups: ultra-fast quote-layers
 ($<$\,100\,ms median hold, $>$\,99\% delete rate) and slower passive posters
 ($>$\,300\,s median hold).
 The extreme distance from mid-price for WBPX (710\,bps), WCHV (390\,bps),
 and SGAS (694\,bps) is consistent with off-market orders that were never
 intended to fill.
+Firm-level $k$-means clustering with $k=3$ (silhouette $= 0.50$, the highest
+across $k \in \{2,\ldots,5\}$) yields:
+Cluster~0 (STFL alone, 5.4\% fill rate), Cluster~1 (14 firms, 0\% fill rate,
+fast cancellation), and Cluster~2 (Citadel CDRG, 0\% fill rate, extremely
+long median hold of 23,401 seconds).
 
 \begin{table}[H]
 \centering
@@ -706,37 +716,45 @@ fill rate vs.\ hold time.}
 \label{fig:placement_ubss}
 \end{figure}
 
-\subsection{PnL Attribution (Phase 2, UBSS)}
+\subsection{PnL Attribution (Phase 2, UBSS and STFL)}
 
-Figure~\ref{fig:pnl_ubss} presents the PnL analysis for UBSS (153 fills).
-The mean same-side PnL per fill is positive at all horizons up to 30 minutes
-and becomes negative at end of day, suggesting a pattern consistent with
-short-term information advantage that decays over hours.
+Figure~\ref{fig:pnl_ubss} presents the PnL analysis for UBSS (151 fills
+across AVAV and KTOS).
+Using the corrected mid-price series --- built from all 6,000--70,000 daily
+executions rather than the $\leq$\,2 MPID-labeled executions per day that
+an earlier pipeline erroneously used --- the same-side PnL per fill is
+positive at all measured horizons.
 
 \begin{table}[H]
 \centering
-\caption{UBSS same-side PnL at key horizons (153 fills, Feb--Mar 2026).}
+\caption{Same-side PnL at key horizons (corrected mid-price series,
+Feb--Mar 2026). STFL fills are in TALO only; UBSS fills are in AVAV and KTOS.}
 \label{tab:pnl}
-\begin{tabular}{@{} l r r r @{}}
+\begin{tabular}{@{} l l r r r @{}}
 \toprule
-\textbf{Horizon} & \textbf{Total PnL (USD)} &
-\textbf{Mean per fill (USD)} & \textbf{n} \\
+\textbf{Firm} & \textbf{Horizon} & \textbf{Total PnL} &
+\textbf{Mean/fill} & \textbf{n} \\
 \midrule
-T$+$100\,ms & \$7,581.42 & \$49.55 & 153 \\
-T$+$1\,s    & \$7,916.62 & \$51.74 & 153 \\
-T$+$30\,s   & \$7,566.17 & \$49.45 & 153 \\
-T$=$EOD     & $-$\$5,570.94 & $-$\$36.41 & 153 \\
+UBSS & T$+$100\,ms & \$4,174 & \$27.64 & 151 \\
+UBSS & T$+$1\,s    & \$3,602 & \$23.86 & 151 \\
+UBSS & T$+$30\,s   & \$2,536 & \$16.80 & 151 \\
+UBSS & T$+$30\,min & \$7,406 & \$49.05 & 151 \\
+\midrule
+STFL & T$+$100\,ms & $-$\$27 & $-$\$1.16 & 23 \\
+STFL & T$+$30\,min & $-$\$103 & $-$\$4.46 & 23 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The PnL sign reversal between 30-minute and end-of-day horizons is
-economically significant: the average fill that earns approximately \$50
-at short horizons loses \$36 by end of day.
-This pattern is consistent with adverse selection by a longer-horizon informed
-counterparty: UBSS provides liquidity at a short-horizon advantage but is
-ultimately picked off by agents with longer-term information
-\citep{Menkveld2013,Glosten1985}.
+UBSS's PnL pattern is notable: the mean per-fill PnL \emph{declines} from
+100\,ms to 30\,s (from \$27.64 to \$16.80) but then \emph{recovers} strongly
+to \$49.05 at 30 minutes.
+This U-shaped profile is inconsistent with pure adverse selection (where PnL
+would monotonically decay) and more consistent with a directional position that
+experiences short-term mean-reversion noise before ultimately being confirmed by
+the longer-horizon price move \citep{Baron2019}.
+STFL shows a consistently small negative PnL at all horizons, consistent with
+passive limit-order posting that is marginally adversely selected.
 
 \begin{figure}[H]
 \centering
@@ -825,36 +843,28 @@ characterized by buying into falling prices and selling into rising prices,
 the hallmark of a passive market-maker or statistical arbitrageur
 \citep{Menkveld2013,AvellanedaStoikov2008}.
 
-\subsection{Strategy Classification (Phase 1)}
+\subsection{Firm-Level Clustering (Phase 2)}
 
-The five-cluster gradient-boosted classifier achieves 98.6\% overall accuracy
-on the temporal held-out test set.
-Table~\ref{tab:classifier} shows the per-class classification report.
-Most classes achieve precision and recall above 97\%, with the exception of
-cluster 3 (recall 92.6\%, precision 30.1\%), which is a rare micro-cluster
-($n=27$ in the test set) associated with extreme market conditions.
-
-\begin{table}[H]
-\centering
-\caption{Classifier performance on temporal test set ($n = 34{,}675$).}
-\label{tab:classifier}
-\begin{tabular}{@{} l r r r r @{}}
-\toprule
-\textbf{Class} & \textbf{Precision} & \textbf{Recall} &
-\textbf{F1} & \textbf{Support} \\
-\midrule
-0 & 0.991 & 0.990 & 0.990 & 14,765 \\
-1 & 0.976 & 0.970 & 0.973 &  7,794 \\
-2 & 0.991 & 0.995 & 0.993 &  1,651 \\
-3 & 0.301 & 0.926 & 0.455 &     27 \\
-4 & 0.992 & 0.991 & 0.991 & 10,438 \\
-\midrule
-Accuracy & \multicolumn{4}{c}{0.986} \\
-Macro avg & 0.850 & 0.974 & 0.880 & 34,675 \\
-Weighted avg & 0.987 & 0.986 & 0.986 & 34,675 \\
-\bottomrule
-\end{tabular}
-\end{table}
+$K$-means clustering on the 16 firm-level placement-signature features
+(excluding the IMCC anomaly) yields $k=3$ as optimal with silhouette $= 0.501$,
+a substantial improvement over the silhouette of $0.188$ reported in the
+preliminary analysis (which used an incorrectly computed mid-price).
+The three clusters map cleanly onto behavioral archetypes:
+\begin{itemize}[noitemsep]
+  \item \textbf{Cluster~0} (1 firm, STFL): The only active fill participant among
+    agency brokers; 5.4\% fill rate, 2.76M\,ms median hold, sessions concentrated
+    at the open.
+  \item \textbf{Cluster~1} (14 firms): The dominant group; zero fills, fast
+    cancellation (6--35,000\,ms median hold), deep off-market placement
+    (100--2,800\,bps from mid). Includes both principal traders (WBPX, Susquehanna,
+    Virtu, Two Sigma, GTS, HRT) and agency desks (JPMS, WCHV, Goldman, UBS, etc.).
+  \item \textbf{Cluster~2} (1 firm, CDRG/Citadel): Zero fills but extraordinary
+    median hold of 23,401 seconds ($\approx$6.5 hours), suggesting long-lived
+    passive quotes or data artifacts.
+\end{itemize}
+Cluster stability across 10 $k$-means re-runs is moderate (mean ARI~$= 0.744$,
+min~$= 0.147$), driven primarily by the instability of the two singleton
+clusters whose assignment is sensitive to initialization.
 
 Figure~\ref{fig:signatures} shows the verified placement signature chart
 summarizing firm-level metrics and cluster assignments.
@@ -862,98 +872,12 @@ summarizing firm-level metrics and cluster assignments.
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{output/verified_signatures.png}
-\caption{Verified placement signatures for all 17 MPIDs.
-Firms are sorted by total order volume; color indicates cluster assignment.}
+\caption{Quantified MPID-attributed placement signatures for all 17 MPIDs.
+Panels show median distance from mid-price (with 95\% bootstrap CI), median
+order hold time (log scale), time-of-day activity buckets, and fill rate vs.\
+delete rate. Green = principal trading firms; orange = agency broker-dealers.}
 \label{fig:signatures}
 \end{figure}
-
-\textbf{Feature importances.}
-Table~\ref{tab:importance} shows the top gradient-boosted feature importances.
-Direction (\texttt{is\_bid}), hidden-order status (\texttt{is\_hidden}), and
-round-lot indicator (\texttt{is\_round\_lot}) collectively account for 77\% of
-model importance, while momentum, size, and order-flow imbalance account for
-the remainder.
-The dominant importance of structural order-type features over price-level
-features suggests that the cluster separation is driven more by order
-packaging than by directional signal.
-
-\begin{table}[H]
-\centering
-\caption{Top feature importances from gradient-boosted classifier.}
-\label{tab:importance}
-\begin{tabular}{@{} l r @{}}
-\toprule
-\textbf{Feature} & \textbf{Importance} \\
-\midrule
-\texttt{is\_bid}         & 0.412 \\
-\texttt{is\_hidden}      & 0.180 \\
-\texttt{is\_round\_lot}  & 0.178 \\
-\texttt{price\_to\_mid}  & 0.041 \\
-\texttt{slippage\_bps}   & 0.036 \\
-\texttt{mom\_5s}         & 0.022 \\
-\texttt{size\_z}         & 0.021 \\
-\texttt{queue\_z}        & 0.019 \\
-\texttt{dir\_pers\_60s}  & 0.016 \\
-\texttt{vol\_30s}        & 0.015 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Cluster profiles.}
-Table~\ref{tab:profiles} summarizes mean standardized feature values per
-cluster.
-Cluster 3 is characterized by extreme negative momentum ($-3.17$ at 1\,s,
-$-8.77$ at 5\,s), extreme volatility ($15.7\sigma$), and very wide spreads
-(100 ticks), consistent with crisis or market-dislocation conditions.
-Cluster 4 (strong positive momentum, near-zero hidden fraction) corresponds
-to directional momentum or latency-arbitrage execution.
-Cluster 1 (negative momentum, high hidden fraction, high OFI) is consistent
-with mean-reversion or passive market-making.
-
-\begin{table}[H]
-\centering
-\caption{Mean standardized feature profiles by cluster.}
-\label{tab:profiles}
-\begin{tabular}{@{} l r r r r r @{}}
-\toprule
-\textbf{Feature} & \textbf{C0} & \textbf{C1} & \textbf{C2} &
-\textbf{C3} & \textbf{C4} \\
-\midrule
-Mom (1s)   &  0.21 & $-$1.54 & $-$0.04 & $-$3.17 &  1.06 \\
-Mom (5s)   &  0.34 & $-$2.32 & $-$0.15 & $-$8.77 &  1.43 \\
-Vol (30s)  &  0.51 &  0.60 &  0.58 & 15.69 &  0.54 \\
-OFI (60s)  &  0.48 &  0.72 &  0.48 &  0.70 &  0.24 \\
-Dir. pers. &  0.75 &  0.87 &  0.76 &  0.90 &  0.65 \\
-Is hidden  &  0.975 &  0.18 &  0.40 &  0.57 &  0.001 \\
-Price-to-mid & 0.22 & $-$1.41 &  0.02 & $-$2.09 &  1.08 \\
-Spread (ticks) & 33.0 & 31.2 & 29.8 & 100.1 & 24.1 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Temporal stability.}
-Table~\ref{tab:stability} shows that cluster proportions are stable between
-the train and test periods for all but cluster 3 (which shifts by $-0.006$,
-corresponding to fewer extreme-condition events in the later test window,
-as expected).
-
-\begin{table}[H]
-\centering
-\caption{Cluster proportion stability between training and test periods.}
-\label{tab:stability}
-\begin{tabular}{@{} l r r r @{}}
-\toprule
-\textbf{Cluster} & \textbf{Train frac.} & \textbf{Test frac.} &
-\textbf{Shift} \\
-\midrule
-0 & 0.415 & 0.426 & $+$0.011 \\
-1 & 0.288 & 0.225 & $-$0.063 \\
-2 & 0.047 & 0.048 & $+$0.000 \\
-3 & 0.007 & 0.001 & $-$0.006 \\
-4 & 0.243 & 0.301 & $+$0.058 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Robustness Checks and Ablations}
@@ -961,29 +885,28 @@ as expected).
 
 \subsection{Sensitivity to Number of Clusters}
 
-Table~\ref{tab:elbow} (Section~4) reports elbow and silhouette metrics for
-$k \in \{2, \ldots, 8\}$.
-The marginal gain in inertia reduction falls substantially after $k = 5$:
-the drop from $k=4$ to $k=5$ is 23,841 (6.4\%), while from $k=5$ to $k=6$
-is 14,245 (4.1\%).
-The Davies--Bouldin index attains its minimum at $k=5$, confirming the
-cluster-count selection.
-At $k=4$ the classifier achieves 98.5\% accuracy (essentially identical),
-indicating that the fifth cluster captures a rare regime that, while
-statistically distinct, has minimal effect on overall classification
-performance.
+Table~\ref{tab:elbow} (Section~4) reports silhouette scores for firm-level
+$k$-means across $k \in \{2, \ldots, 5\}$.
+The silhouette peaks sharply at $k=3$ ($= 0.501$) and declines at $k=4$
+($= 0.423$), recovering partially at $k=5$ ($= 0.471$).
+We select $k=3$ as the most parsimonious well-separated solution.
+At $k=2$ the algorithm merges Cluster~0 (STFL) into the dominant Cluster~1,
+losing the behaviorally meaningful distinction between the only active
+execution firm and the passive-quoting majority.
 
 \subsection{Alternative PnL Benchmark}
 
 The main results use the \textbf{same-side PnL} benchmark (bid fill vs.\ best
-bid at $T$).
-As an alternative, we computed the \textbf{mid-price benchmark}
-$\text{PnL}^{(T)}_{\text{mid}} = d_i \cdot (m_{t+T} - p_i) \cdot q_i$.
-The mid-price benchmark is systematically more positive at short horizons
-(by approximately half the spread) and produces a similar sign reversal
-between 30\,s and EOD.
-Both benchmarks agree on the qualitative conclusion: short-horizon positive
-PnL decaying to negative PnL at end of day for UBSS.
+bid at $T$), computed from the full execution series (all 6,000--70,000 daily
+executions per ticker).
+An earlier version of the pipeline used a labeled-only execution series
+($\leq 2$ executions per ticker-day carrying an MPID), making mid-price
+estimates unreliable; all reported PnL figures use the corrected series.
+The same-side benchmark is systematically more conservative than the mid-price
+benchmark (by approximately half the bid-ask spread at short horizons).
+Under the corrected benchmark, UBSS shows a U-shaped PnL profile: declining
+from \$27.64/fill at 100\,ms to \$16.80/fill at 30\,s, then recovering to
+\$49.05/fill at 30 minutes.
 
 \subsection{Sensitivity to Logistic Regression Feature Set}
 
@@ -1106,9 +1029,13 @@ The dominant empirical finding is one of \textbf{extreme order-flow sparsity
 in fills}: the three largest firms by order count (WBPX, JPMS, WCHV) account
 for 96\% of labeled volume while recording zero executions, consistent with
 systematic passive quoting or data artifacts.
-The sole active firm in our sample (UBSS) exhibits a PnL pattern --- positive
-at sub-minute horizons, negative at end of day --- that is textbook adverse
-selection from the perspective of a passive liquidity provider.
+The sole substantially active firm in our sample (UBSS, 151 fills) exhibits
+a U-shaped PnL profile under the corrected benchmark: positive at all measured
+horizons (peaking at \$49/fill at 30 minutes), with a transient trough around
+30 seconds.
+This is more consistent with a directional position that experiences short-term
+mean-reversion noise before the longer-horizon signal is confirmed, rather than
+pure adverse selection.
 
 The feature-engineering and classification pipeline shows that LOB execution
 events are highly predictable by structural order characteristics (direction,

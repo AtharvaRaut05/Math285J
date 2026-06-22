@@ -207,6 +207,21 @@ for rec in fills_df.itertuples(index=False):
 
 pnl_df = pd.DataFrame(pnl_rows) if pnl_rows else pd.DataFrame()
 
+# Save per-fill PnL table and summary
+if len(pnl_df):
+    pnl_df.to_csv(OUTPUT_DIR / "fill_pnl_detail.csv", index=False)
+    pnl_cols = [f"pnl_{l}" for l in H_LABELS]
+    summary_rows = []
+    for firm, grp in pnl_df.groupby("firm"):
+        row = {"firm": firm, "n_fills": len(grp), "tickers": ",".join(sorted(grp.ticker.unique()))}
+        for col in pnl_cols:
+            s = grp[col].dropna()
+            row[f"{col}_total"] = round(s.sum(), 2)
+            row[f"{col}_mean"]  = round(s.mean(), 4) if len(s) else None
+        summary_rows.append(row)
+    pd.DataFrame(summary_rows).to_csv(OUTPUT_DIR / "pnl_horizons_summary.csv", index=False)
+    print(f"Saved fill_pnl_detail.csv ({len(pnl_df)} fills) and pnl_horizons_summary.csv")
+
 # ── 6. Portfolio simulation per firm ──────────────────────────────────────────
 print("Simulating portfolios...")
 
@@ -255,16 +270,18 @@ def fmt_name(mpid: str) -> str:
 def make_placement_figure(mpid: str, lc_firm: pd.DataFrame) -> plt.Figure:
     """Per-firm order placement figure — works for all firms."""
     tickers_present = sorted(lc_firm["ticker"].unique())
-    fig = plt.figure(figsize=(16, 10), constrained_layout=True)
+    fig = plt.figure(figsize=(16, 11))
     fig.patch.set_facecolor("#1a1a2e")
-    gs  = GridSpec(2, 3, figure=fig, hspace=0.45, wspace=0.35)
+    gs  = GridSpec(2, 3, figure=fig,
+                   top=0.86, bottom=0.07, left=0.07, right=0.97,
+                   hspace=0.58, wspace=0.38)
 
     fig.suptitle(
-        f"{fmt_name(mpid)}\nLimit Order Placement Analysis   |   {DATE_RANGE}   |   "
-        f"Tickers: {', '.join(tickers_present)}\n"
-        f"Total orders: {len(lc_firm):,}   Fills: {lc_firm.filled.sum():,}   "
+        f"{fmt_name(mpid)}   —   Limit Order Placement Analysis   |   {DATE_RANGE}\n"
+        f"Tickers: {', '.join(tickers_present)}   |   "
+        f"Total orders: {len(lc_firm):,}   |   Fills: {lc_firm.filled.sum():,}   |   "
         f"Fill rate: {lc_firm.filled.mean()*100:.2f}%",
-        fontsize=10, y=1.0, color="white", wrap=True
+        fontsize=10, y=0.975, color="white",
     )
 
     # ── Panel A: Histogram of price-to-mid bps per ticker ─────────────────────
@@ -430,21 +447,22 @@ def make_pnl_figure(mpid: str, firm_pnl: pd.DataFrame,
     tickers_present = sorted(firm_pnl["ticker"].unique())
     n_fills = len(firm_pnl)
 
-    fig = plt.figure(figsize=(16, 9), constrained_layout=True)
+    fig = plt.figure(figsize=(16, 10))
     fig.patch.set_facecolor("#1a1a2e")
-    gs  = GridSpec(2, 3, figure=fig, hspace=0.45, wspace=0.35)
+    gs  = GridSpec(2, 3, figure=fig,
+                   top=0.87, bottom=0.07, left=0.07, right=0.97,
+                   hspace=0.58, wspace=0.38)
 
     fill_info = "  |  ".join(
         f"{tk}: {(firm_pnl.ticker==tk).sum()} fills"
         for tk in tickers_present
     )
     fig.suptitle(
-        f"{fmt_name(mpid)}\nSame-Side PnL Analysis   |   {DATE_RANGE}   |   "
-        f"Tickers: {', '.join(tickers_present)}\n"
-        f"{fill_info}\n"
-        f"PnL benchmark: best same-side price T seconds after fill "
-        f"(bid fill vs. best bid at T, ask fill vs. best ask at T)",
-        fontsize=9, y=1.0, color="white"
+        f"{fmt_name(mpid)}   —   Same-Side PnL Analysis   |   {DATE_RANGE}\n"
+        f"Tickers: {', '.join(tickers_present)}   |   {fill_info}\n"
+        f"Benchmark: best same-side price T sec after fill "
+        f"(bid fill vs best bid at T, ask fill vs best ask at T)",
+        fontsize=9, y=0.975, color="white",
     )
 
     pnl_cols = [f"pnl_{l}" for l in H_LABELS]
