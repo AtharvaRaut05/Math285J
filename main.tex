@@ -406,17 +406,17 @@ A \textbf{portfolio simulation} is run for each firm with fills.
 Positions and cash accumulate across fills in chronological order; short
 selling is permitted so that ask fills execute regardless of current
 inventory (position can go negative).
-The volume-weighted average cost (VWAC) is tracked separately for long
-extensions (buys when $\text{pos} \ge 0$) and short extensions (sells when
-$\text{pos} \le 0$).
-Unrealized P\&L at each event is:
+Total P\&L at each event is:
 \[
-  \text{Unrealized} = \text{pos} \times \bigl(m_t - \overline{p}\bigr)
+  \text{PnL}_t = \underbrace{\text{cash}_t}_{\text{realised flow}}
+               + \underbrace{\text{pos}_t \times m_t}_{\text{mark-to-market}}
 \]
-where $m_t$ is the mid-price at time $t$ and $\overline{p}$ is the VWAC.
-This is correct for both long positions ($\text{pos}>0$, gains when $m_t$
-rises) and short positions ($\text{pos}<0$, gains when $m_t$ falls).
-Total P\&L $=$ realized cash flow $+$ unrealized.
+where $\text{cash}_t$ is the running net cash flow (negative after buys,
+positive after sells) and $m_t$ is the mid-price at time $t$.
+This identity holds for both longs ($\text{pos}>0$: cash fell by purchase
+cost, unrealized rises with the price) and shorts ($\text{pos}<0$: cash
+rose from sale proceeds, unrealized falls as the position value grows
+against us).
 
 \subsection{Step 3 -- News-Event Reaction Analysis}
 
@@ -784,9 +784,8 @@ passive limit-order posting that is marginally adversely selected.
 Panel A: mean same-side PnL decay curve from 1\,ms to 30 minutes.
 Panel B: per-fill PnL box plots at 4 key horizons.
 Panel C: cumulative same-side PnL by horizon.
-Panel D: portfolio simulation trajectory --- realized cash flow plus
-unrealized mark-to-market gain/loss, with short selling permitted and
-position marked at \texttt{pos}~$\times$~(\texttt{mid}~$-$~\texttt{avg\_cost}).}
+Panel D: portfolio simulation trajectory --- total P\&L $=$ realized cash
+flow $+$ \texttt{pos}~$\times$~\texttt{mid}, with short selling permitted.}
 \label{fig:pnl_ubss}
 \end{figure}
 

@@ -233,7 +233,7 @@ for firm in fills_df["firm"].unique() if len(fills_df) else []:
     firm_fills = fills_df[fills_df.firm == firm].sort_values(["date","t_sub"])
     port = {}
     for ticker, grp in firm_fills.groupby("ticker"):
-        pos, cash, avg_cost = 0, 0.0, 0.0
+        pos, cash = 0, 0.0
         events = []
         for r in grp.itertuples(index=False):
             sz  = int(r.sub_size)
@@ -241,22 +241,17 @@ for firm in fills_df["firm"].unique() if len(fills_df) else []:
             t   = float(r.t_sub)
             mid = mid_at(r.ticker, r.date, t)
             if r.dir_str == "bid":
-                # Update avg cost only when adding to a long (or opening from flat/short)
-                if pos >= 0:
-                    avg_cost = (avg_cost * pos + sz * p) / (pos + sz)
                 pos  += sz
-                cash -= sz * p
-            else:  # ask — allow short selling; no pos >= sz guard
-                if pos <= 0:
-                    # Opening/extending a short: track avg short price as avg_cost
-                    avg_cost = (avg_cost * abs(pos) + sz * p) / (abs(pos) + sz)
+                cash -= sz * p          # cash falls by purchase cost
+            else:                       # ask — short selling permitted
                 pos  -= sz
-                cash += sz * p
-            # unrealized PnL = position × (mid − avg_cost)
-            # Works for longs (pos > 0) and shorts (pos < 0) symmetrically:
-            #   long:  gain when mid rises above avg_cost
-            #   short: gain when mid falls below avg_cost  (pos negative, mid-avg_cost negative → positive)
-            unreal = pos * (mid - avg_cost) if not np.isnan(mid) else 0.0
+                cash += sz * p          # cash rises by sale proceeds
+            # Total PnL = realised cash + mark-to-market value of open position.
+            # cash already reflects every dollar spent/received, so adding
+            # pos * mid gives the correct net P&L for both longs and shorts:
+            #   long:  cash=-cost, unreal=+mkt_value  → PnL = mkt_value - cost
+            #   short: cash=+proceeds, unreal=-mkt_value → PnL = proceeds - mkt_value
+            unreal = pos * mid if not np.isnan(mid) else 0.0
             events.append({"date": r.date, "t": t, "pos": pos,
                            "cash": cash, "pnl": cash + unreal})
         if events:
