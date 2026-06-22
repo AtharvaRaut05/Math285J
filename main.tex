@@ -318,15 +318,22 @@ We derive the following features for downstream analysis:
 
 \subsection{Data Cleaning and Preprocessing}
 
-Raw message files were filtered to retain only rows with a valid non-null MPID.
-Prices were converted to USD by multiplying the integer representation by
+Each raw message file is loaded once in its entirety.
+Prices are converted to USD by multiplying the integer representation by
 $0.0001$.
-Order lifecycles were constructed by matching each submission event (type 1)
-to its first subsequent terminal event (types 2--5) using (date, order ID)
-as a join key; unmatched submissions were discarded.
-Hold times were required to be non-negative; a small number of out-of-sequence
-messages with negative apparent hold times ($<0.1\%$ of lifecycle rows) were
-removed.
+The execution price series (used for all mid-price and same-side PnL
+calculations) is built from \emph{all} type-4/5 rows before any MPID filter
+is applied; this is critical because in this LOBSTER build only $\sim$0.06\%
+of execution rows carry an MPID label.
+Order lifecycles are then constructed per day by: (i) extracting
+MPID-labeled type-1 (submission) rows as the set of attributed orders;
+(ii) extracting all type-2/3/4/5 (terminal) rows from the full file,
+regardless of whether they carry an MPID; and (iii) joining on order ID
+to find each submission's first terminal event.
+In this LOBSTER build, type-3 delete rows also carry the originating MPID,
+so the join succeeds for virtually all attributed orders.
+Hold times are required to be non-negative; a small fraction of
+out-of-sequence messages ($<0.1\%$) are removed.
 Price-to-mid calculations used the same-side execution price series
 (bid side for bid orders, ask side for ask orders) to avoid confounding
 effects of the spread.
@@ -344,8 +351,9 @@ The two analysis windows are non-overlapping and separated by approximately
 four months, preventing direct before/after comparison of firm behavior.
 Sample sizes are small for all firms other than the top three by volume,
 making statistical inference fragile for tail participants.
-Only 153 fills were recorded in Phase 2 (all attributable to UBSS),
-limiting PnL analysis to a single firm.
+Only 174 fills were recorded in Phase 2 (151 attributable to UBSS across
+AVAV and KTOS, 23 to STFL in TALO), and the small sample limits the
+statistical power of PnL inferences.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Methodology}
@@ -452,22 +460,20 @@ within the trading session.
 Standard errors are obtained via the sandwich estimator to account for
 intraday clustering.
 
-\subsubsection{Step 4c: Clustering and Strategy Classification}
+\subsubsection{Step 4c: Firm-Level Clustering}
 
-We construct a feature matrix from 224,134 LOB execution events and cluster
-them using $k$-means after standardization.
-The optimal number of clusters is selected via joint minimization of the
-Davies--Bouldin index and elbow analysis of within-cluster inertia
+We cluster the 16 non-anomaly MPIDs on nine placement-signature features:
+fill rate, delete rate, median hold time, cancellation half-life, median
+distance from mid-price, and four session-phase activity fractions (pre-market,
+open-rush, mid-day, close).
+Features are standardised before $k$-means; the optimal $k$ is chosen by
+maximising the silhouette score over $k \in \{2, \ldots, 5\}$
 (Table~\ref{tab:elbow}).
-A gradient-boosted classifier (scikit-learn \texttt{GradientBoostingClassifier})
-is trained on the cluster assignments using a 75\%/25\% temporal train/test
-split (training on earlier dates, testing on later dates within the Phase 1
-window) to prevent look-ahead bias.
 
 \begin{table}[H]
 \centering
-\caption{Firm-level cluster selection metrics (placement-signature features,
-16 firms after excluding the IMCC anomaly).}
+\caption{Firm-level cluster selection: silhouette score by $k$
+(16 firms, IMCC anomaly excluded, 25-day placement signatures).}
 \label{tab:elbow}
 \begin{tabular}{@{} r r @{}}
 \toprule
@@ -481,11 +487,6 @@ $k$ & Silhouette \\
 \end{tabular}
 \end{table}
 
-\textbf{Evaluation metrics:} per-class precision, recall, F1-score, and
-overall accuracy on the temporal held-out test set.
-\textbf{Baseline:} majority-class classifier (assigns all observations to
-the most frequent cluster).
-
 \subsection{Implementation Notes}
 
 All code is implemented in Python 3.12 using \texttt{pandas}, \texttt{numpy},
@@ -498,7 +499,7 @@ for signature analysis, regression, and classification.
 Prices are stored as integers scaled by $10^{-4}$ and converted to USD at
 load time.
 The same-side PnL benchmark uses binary search (\texttt{np.searchsorted}) for
-$O(\log N)$ lookup, enabling tractable computation across 153 fills $\times$
+$O(\log N)$ lookup, enabling tractable computation across 174 fills $\times$
 14 horizons.
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -569,13 +570,15 @@ not MPID-labeled in the visible feed'' (a data-coverage limitation).
 Human judgment was required to recognize that the null result is more likely
 a data artifact than a true behavioral finding for these specific firms.
 
-\textbf{Strategy archetype labeling.}
-The cluster names (``stat\_arb'', ``momentum'', ``market\_maker'') were
-assigned by Claude after inspecting mean feature profiles.
-These labels are plausible but not validated against ground truth, and
-the moderate silhouette scores (0.187 at $k=5$) suggest overlapping clusters.
+\textbf{Cluster interpretation.}
+Behavioral labels for each cluster (``ultra-fast quote-layer'',
+``passive poster'', ``sole active executor'') were assigned by inspecting mean
+feature profiles.
+These labels are qualitatively plausible but are not validated against
+ground truth, and the three-firm singleton clusters (STFL, CDRG) make
+statistical characterisation of those archetypes unreliable.
 A human expert would apply additional external validation (e.g., cross-referencing
-published Virtu or Two Sigma strategy descriptions).
+published Virtu or Citadel strategy disclosures).
 
 \textbf{Regression on hidden executions.}
 The logistic regression on hidden execution events did not converge cleanly;
@@ -586,17 +589,24 @@ separation in some features) and was ultimately set aside.
 \subsection{Human Intervention Required}
 
 Substantial human oversight was required for:
-(i) identifying a critical mid-price bug --- the execution price series used for
-all PnL and placement-distance calculations was built from MPID-labeled rows only,
-which captured at most 2 of 6,444 daily executions per ticker-day; the
-agentic tool generated this code without flagging the filter, and the error
-was identified by inspecting the unexpectedly sparse exec\_series output;
-(ii) verifying MPID name mappings (\texttt{WBPX} $\to$ Wedbush, etc.), since
-several MPIDs do not appear in public registries and the agentic tool's
-identifications required manual cross-checking;
-(iii) recognizing that the WBPX zero-fill anomaly ($>1.7$M orders, 0 fills)
+(i) \textbf{Mid-price bug (Step 3)}: the execution price series was initially
+built from MPID-labeled rows only, capturing at most 2 of 6,444 daily
+executions per ticker-day; the error was identified by reviewing per-day
+execution counts in the output log and was fixed by re-reading each file
+without any MPID filter before computing the price series;
+(ii) \textbf{Lifecycle matching bug (Step 4)}: terminal events (cancellations,
+deletions, fills) were searched only within the labeled-row subset, causing
+most lifecycle lookups to fail silently because the exchange strips MPID
+from cancellation and fill confirmations; the fix collapsed Steps 2--4 into
+a single per-file loop that sources terminals from the full unfiltered file;
+in this specific LOBSTER build the numerical impact was limited because
+type-3 delete rows carry the originating MPID, but the architecture is now
+correct for any LOBSTER build;
+(iii) verifying MPID name mappings (\texttt{WBPX} $\to$ Wedbush, etc.), since
+several codes do not appear in public registries;
+(iv) recognizing that the WBPX zero-fill anomaly ($>1.7$M orders, 0 fills)
 was a genuine behavioral signature rather than a pipeline bug;
-(iv) cross-checking that the two analysis windows (Oct 2025 and Feb--Mar 2026)
+(v) cross-checking that the two analysis windows (Oct 2025 and Feb--Mar 2026)
 were not inadvertently mixed in intermediate output files.
 
 \subsection{What Would Have Been Impossible Without Agentic Tools}
@@ -727,21 +737,21 @@ positive at all measured horizons.
 
 \begin{table}[H]
 \centering
-\caption{Same-side PnL at key horizons (corrected mid-price series,
-Feb--Mar 2026). STFL fills are in TALO only; UBSS fills are in AVAV and KTOS.}
+\caption{Same-side PnL across all 14 horizons (corrected mid-price series,
+Feb--Mar 2026). UBSS fills: AVAV (65) and KTOS (86); STFL fills: TALO (23).
+Positive = fill was at a better price than the same side offered $T$ later.}
 \label{tab:pnl}
-\begin{tabular}{@{} l l r r r @{}}
+\begin{tabular}{@{} l r r r r r r r r @{}}
 \toprule
-\textbf{Firm} & \textbf{Horizon} & \textbf{Total PnL} &
-\textbf{Mean/fill} & \textbf{n} \\
+ & \multicolumn{8}{c}{\textbf{Mean PnL per fill (USD) at horizon $T$}} \\
+\cmidrule{2-9}
+\textbf{Firm} &
+1\,ms & 10\,ms & 100\,ms & 1\,s & 10\,s & 30\,s & 1\,min & 30\,min \\
 \midrule
-UBSS & T$+$100\,ms & \$4,174 & \$27.64 & 151 \\
-UBSS & T$+$1\,s    & \$3,602 & \$23.86 & 151 \\
-UBSS & T$+$30\,s   & \$2,536 & \$16.80 & 151 \\
-UBSS & T$+$30\,min & \$7,406 & \$49.05 & 151 \\
-\midrule
-STFL & T$+$100\,ms & $-$\$27 & $-$\$1.16 & 23 \\
-STFL & T$+$30\,min & $-$\$103 & $-$\$4.46 & 23 \\
+UBSS ($n=151$) &
+29.35 & 29.40 & 27.64 & 23.86 & 17.37 & 16.80 & 19.36 & 49.05 \\
+STFL ($n=23$) &
+$-$0.59 & $-$1.16 & $-$1.16 & $-$1.16 & $-$0.99 & $-$2.22 & $-$5.09 & $-$4.46 \\
 \bottomrule
 \end{tabular}
 \end{table}
