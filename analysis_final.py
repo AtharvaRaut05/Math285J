@@ -63,46 +63,27 @@ for f in deleted:
     f.unlink()
 print(f"Deleted {len(deleted)} HTML files")
 
-# ── 2. Load MPID-labeled orders for each ticker (firm attribution only) ────────
-# These are used for firm-level analysis (submissions, lifecycles, portfolio).
-# Do NOT use ticker_data for LOB reference prices — see Step 3.
-print("Loading MPID-labeled orders...")
+# ── 2+3+4. Unified single-pass loader ─────────────────────────────────────────
+# Each file is opened exactly ONCE per ticker-day.  From it we extract:
+#   (a) exec_series   — ALL type-4/5 rows (no MPID filter) for accurate pricing.
+#                       The exchange strips MPID from execution rows, so the
+#                       labeled-only subset has ~2 executions/day vs 6k-70k real.
+#   (b) labeled subs  — type-1 rows with MPID, accumulated into ticker_data for
+#                       firm-level placement stats and portfolio simulation.
+#   (c) lifecycles    — subs from (b) joined to terminals from the FULL file.
+#                       The exchange also strips MPID from cancel/delete rows, so
+#                       searching ticker_data for terminals finds almost nothing.
+print("Single-pass load: exec series + labeled subs + lifecycle matching...")
 
-ticker_data = {}   # ticker -> DataFrame of all labeled orders (all files)
-for ticker in TICKERS:
-    parts = []
-    for fpath in sorted((DATA_BASE / ticker).glob(f"{ticker}_*_message_0.csv")):
-        date_str = fpath.name.split("_")[1]
-        df = pd.read_csv(str(fpath), header=None,
-                         names=["time","type","oid","size","price","dir","firm"],
-                         low_memory=False)
-        df["date"]   = date_str
-        df["ticker"] = ticker
-        df["type_n"] = pd.to_numeric(df["type"], errors="coerce")
-        df["dir_n"]  = pd.to_numeric(df["dir"],  errors="coerce")
-        df["price_usd"] = pd.to_numeric(df["price"], errors="coerce") * PRICE_SCALE
-        df["time"]   = pd.to_numeric(df["time"], errors="coerce")
-        labeled = df[df["firm"].notna() & ~df["firm"].isin(["null",""])]
-        parts.append(labeled)
-    full = pd.concat(parts, ignore_index=True)
-    ticker_data[ticker] = full
-    subs  = (full.type_n == 1).sum()
-    fills = full.type_n.isin([4,5]).sum()
-    print(f"  {ticker}: {len(full):,} labeled rows | {subs:,} submits | {fills:,} fills")
-
-# ── 3. Build execution price series per ticker per day (for same-side PnL) ────
-# IMPORTANT: must use the FULL message file (all type-4/5 rows), not the
-# labeled-only subset in ticker_data.  In AVAV 2026-02-23, for example, there
-# are 6,444 executions in the full file but only 2 carry an MPID label.
-# Using labeled-only would leave the mid-price series nearly empty and make
-# every price-to-mid and PnL calculation wrong.
-print("\nBuilding execution price series from FULL message files...")
-
-exec_series = {}  # (ticker, date, 'bid'|'ask') -> (times_arr, prices_arr)
+exec_series    = {}                    # (ticker, date, side) -> (times, prices)
+all_lifecycles = []                    # per-day lifecycle DataFrames
+ticker_parts   = {t: [] for t in TICKERS}  # accumulate labeled subs per ticker
 
 for ticker in TICKERS:
     for fpath in sorted((DATA_BASE / ticker).glob(f"{ticker}_*_message_0.csv")):
         date_str = fpath.name.split("_")[1]
+
+        # ── Load the full, unfiltered file once ──────────────────────────────
         full = pd.read_csv(str(fpath), header=None,
                            names=["time","type","oid","size","price","dir","firm"],
                            low_memory=False)
@@ -111,6 +92,7 @@ for ticker in TICKERS:
         full["price_usd"] = pd.to_numeric(full["price"], errors="coerce") * PRICE_SCALE
         full["time"]      = pd.to_numeric(full["time"],  errors="coerce")
 
+        # ── (a) Execution price series — no MPID filter ───────────────────────
         execs = full[full["type_n"].isin([4, 5])].copy()
         for side_n, side_str in [(1, "bid"), (-1, "ask")]:
             side_ex = execs[execs["dir_n"] == side_n].sort_values("time")
@@ -119,9 +101,54 @@ for ticker in TICKERS:
                     side_ex["time"].values.astype(np.float64),
                     side_ex["price_usd"].values.astype(np.float64)
                 )
-        n_exec = len(execs)
-        print(f"  {ticker} {date_str}: {n_exec:,} executions in full file")
 
+        # ── (b) MPID-labeled submissions ──────────────────────────────────────
+        labeled = full[
+            (full["type_n"] == 1) &
+            full["firm"].notna() &
+            ~full["firm"].isin(["null", ""])
+        ].copy()
+        labeled["date"]   = date_str
+        labeled["ticker"] = ticker
+        ticker_parts[ticker].append(labeled)
+
+        # ── (c) Lifecycle: subs labeled, terminals from full file ─────────────
+        subs = (labeled[["firm","oid","time","price_usd","dir_n","size"]]
+                .rename(columns={"time":"t_sub","price_usd":"sub_price",
+                                 "size":"sub_size"})
+                .drop_duplicates(subset=["oid"]))
+        subs["dir_str"] = subs["dir_n"].map({1:"bid",-1:"ask"})
+
+        # Terminal events from FULL file — MPID is absent on cancels/deletes/fills
+        terms = (full[full["type_n"].isin([2, 3, 4, 5])]
+                 [["oid","time","type_n","price_usd"]]
+                 .rename(columns={"time":"t_term","type_n":"term_type",
+                                  "price_usd":"term_price"})
+                 .sort_values("t_term")
+                 .drop_duplicates(subset=["oid"], keep="first"))
+
+        if not subs.empty:
+            lc = subs.merge(terms, on="oid", how="left")
+            lc["date"]   = date_str
+            lc["ticker"] = ticker
+            lc["hold_s"] = lc["t_term"] - lc["t_sub"]
+            lc["filled"] = lc["term_type"].isin([4.0, 5.0])
+            lc = lc[lc.hold_s >= 0].copy()
+            all_lifecycles.append(lc)
+
+        print(f"  {ticker} {date_str}: "
+              f"{len(execs):,} execs | {len(labeled):,} labeled subs")
+
+# Assemble ticker_data for downstream placement figures
+ticker_data = {}
+for ticker in TICKERS:
+    if ticker_parts[ticker]:
+        td = pd.concat(ticker_parts[ticker], ignore_index=True)
+        ticker_data[ticker] = td
+        print(f"  {ticker}: {len(td):,} labeled rows | "
+              f"{(td.type_n==1).sum():,} submits")
+
+# ── Pricing helpers (use exec_series built above) ─────────────────────────────
 def best_same_side_price(ticker: str, date: str, t: float, side: str) -> float:
     """Return the nearest same-side execution price at or after time t."""
     key = (ticker, date, side)
@@ -141,36 +168,11 @@ def mid_at(ticker: str, date: str, t: float) -> float:
         return (b if not np.isnan(b) else a)
     return (b + a) / 2
 
-# ── 4. Build order lifecycles per ticker ──────────────────────────────────────
-print("Building order lifecycles...")
-
-all_lifecycles = []
-
-for ticker, df in ticker_data.items():
-    subs = (df[df.type_n == 1]
-              [["date","ticker","firm","oid","time","price_usd","dir_n","size"]]
-              .rename(columns={"time":"t_sub","price_usd":"sub_price",
-                               "size":"sub_size"})
-              .drop_duplicates(subset=["date","oid"]))
-    subs["dir_str"] = subs["dir_n"].map({1:"bid",-1:"ask"})
-
-    terms = (df[df.type_n.isin([2,3,4,5])]
-               [["date","oid","time","type_n","price_usd"]]
-               .rename(columns={"time":"t_term","type_n":"term_type",
-                                "price_usd":"term_price"})
-               .sort_values("t_term")
-               .drop_duplicates(subset=["date","oid"], keep="first"))
-
-    lc = subs.merge(terms, on=["date","oid"], how="left")
-    lc["hold_s"] = lc["t_term"] - lc["t_sub"]
-    lc["filled"] = lc["term_type"].isin([4.0, 5.0])
-    lc = lc[lc.hold_s >= 0].copy()
-    all_lifecycles.append(lc)
-
+# ── Assemble lifecycles ───────────────────────────────────────────────────────
 lifecycle = pd.concat(all_lifecycles, ignore_index=True)
 fills_df  = lifecycle[lifecycle.filled].copy()
 
-print(f"  {len(lifecycle):,} lifecycles | {len(fills_df):,} fills total")
+print(f"\n  {len(lifecycle):,} lifecycles | {len(fills_df):,} fills total")
 print("  Fills by firm+ticker:")
 if len(fills_df):
     print(fills_df.groupby(["firm","ticker"]).size().to_string())
